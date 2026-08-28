@@ -1,10 +1,11 @@
 name: Deploy to Railway
 
 # Runs after CI succeeds on main, or manual dispatch.
-# GitHub secrets (pick ONE auth path):
-#   A) RAILWAY_TOKEN — project token (Project → Settings → Tokens)
-#   B) RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID — account token (Account → Tokens)
-# Also: RAILWAY_SERVICE_ID, APP_BASE_URL (optional)
+#
+# Railway auth — set on GitHub Environment "production" (Settings → Environments):
+#   A) RAILWAY_TOKEN — project token (Project → Settings → Tokens, pick production env)
+#   B) RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID — account token (railway.com/account/tokens)
+# Also: RAILWAY_SERVICE_ID, optional RAILWAY_ENVIRONMENT (default: production), APP_BASE_URL
 # See docs/DEPLOYMENT.md
 
 on:
@@ -20,8 +21,9 @@ concurrency:
 
 jobs:
   deploy:
-    name: Railway deploy + migrate + smoke
+    name: Railway deploy + migrate
     runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
@@ -39,40 +41,30 @@ jobs:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
         run: |
           if [ -z "$RAILWAY_SERVICE_ID" ]; then
-            echo "::error::Missing GitHub secret RAILWAY_SERVICE_ID (app service → Settings → Service ID)"
+            echo "::error::Missing RAILWAY_SERVICE_ID (app service → Settings → Service ID)"
             exit 1
           fi
           if [ -n "$RAILWAY_TOKEN" ] && [ -n "$RAILWAY_API_TOKEN" ]; then
-            echo "::warning::Both RAILWAY_TOKEN and RAILWAY_API_TOKEN are set. Using RAILWAY_TOKEN (project token)."
+            echo "::warning::Both RAILWAY_TOKEN and RAILWAY_API_TOKEN are set. Prefer project token (A) only, or account token (B) only."
           fi
           if [ -n "$RAILWAY_TOKEN" ]; then
-            echo "Railway auth: project token (RAILWAY_TOKEN)"
+            echo "Railway auth: project token → RAILWAY_TOKEN (must be from Project → Settings → Tokens)"
           elif [ -n "$RAILWAY_API_TOKEN" ]; then
             if [ -z "$RAILWAY_PROJECT_ID" ]; then
-              echo "::error::RAILWAY_API_TOKEN is set but RAILWAY_PROJECT_ID is missing."
-              echo "Account tokens need --project. Add RAILWAY_PROJECT_ID (Project → Settings → Project ID)."
+              echo "::error::RAILWAY_API_TOKEN set but RAILWAY_PROJECT_ID missing (Project → Settings → Project ID)"
               exit 1
             fi
-            echo "Railway auth: account token (RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID)"
+            echo "Railway auth: account token → RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID"
           else
             echo "::error::Missing Railway credentials. Set ONE of:"
-            echo "  • RAILWAY_TOKEN — project token from Railway project → Settings → Tokens"
-            echo "  • RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID — account token from Account Settings → Tokens"
-            echo "Common mistake: account token in RAILWAY_TOKEN causes 'Unauthorized' on railway up."
+            echo "  A) RAILWAY_TOKEN — project token (NOT from Account Settings)"
+            echo "  B) RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID — account token"
             exit 1
           fi
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      - run: npm ci
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli@4.5.3
+          echo "RAILWAY_ENVIRONMENT=${RAILWAY_ENVIRONMENT:-production}"
 
       - name: Deploy application
         env:
@@ -80,14 +72,20 @@ jobs:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
         run: |
           set -euo pipefail
+          ENV_NAME="${RAILWAY_ENVIRONMENT:-production}"
           if [ -n "${RAILWAY_TOKEN:-}" ]; then
             unset RAILWAY_API_TOKEN
-            railway up --service "$RAILWAY_SERVICE_ID" --ci
+            railway up --service "$RAILWAY_SERVICE_ID" --environment "$ENV_NAME" --ci
           else
             unset RAILWAY_TOKEN
-            railway up --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --ci
+            railway up \
+              --project "$RAILWAY_PROJECT_ID" \
+              --service "$RAILWAY_SERVICE_ID" \
+              --environment "$ENV_NAME" \
+              --ci
           fi
 
       - name: Run database migrations (remote)
@@ -96,44 +94,65 @@ jobs:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
+          REBUILD_DERIVED_ON_DEPLOY: ${{ secrets.REBUILD_DERIVED_ON_DEPLOY }}
         run: |
           set -euo pipefail
+          ENV_NAME="${RAILWAY_ENVIRONMENT:-production}"
           if [ -n "${RAILWAY_TOKEN:-}" ]; then
             unset RAILWAY_API_TOKEN
-            railway run --service "$RAILWAY_SERVICE_ID" npm run db:migrate
+            railway run --service "$RAILWAY_SERVICE_ID" --environment "$ENV_NAME" npm run db:migrate
           else
             unset RAILWAY_TOKEN
-            railway run --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" npm run db:migrate
+            railway run \
+              --project "$RAILWAY_PROJECT_ID" \
+              --service "$RAILWAY_SERVICE_ID" \
+              --environment "$ENV_NAME" \
+              npm run db:migrate
           fi
+          if [ "${REBUILD_DERIVED_ON_DEPLOY:-}" = "true" ]; then
+            if [ -n "${RAILWAY_TOKEN:-}" ]; then
+              railway run --service "$RAILWAY_SERVICE_ID" --environment "$ENV_NAME" npm run rebuild:derived
+            else
+              railway run \
+                --project "$RAILWAY_PROJECT_ID" \
+                --service "$RAILWAY_SERVICE_ID" \
+                --environment "$ENV_NAME" \
+                npm run rebuild:derived
+            fi
+          else
+            echo "Skipping rebuild:derived (set REBUILD_DERIVED_ON_DEPLOY=true when Qdrant/Neo4j + embeddings are configured)"
+          fi
+
+  smoke:
+    name: Post-deploy smoke
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
 
       - name: Post-deploy health check
         env:
           APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
         run: |
           if [ -z "$APP_BASE_URL" ]; then
-            echo "::warning::APP_BASE_URL secret not set — skipping /health and /ready check"
+            echo "::warning::APP_BASE_URL not set — skipping /health and /ready"
             exit 0
           fi
           sleep 15
           npm run production:check
-
-      - name: Optional derived index rebuild
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
-          REBUILD_DERIVED_ON_DEPLOY: ${{ secrets.REBUILD_DERIVED_ON_DEPLOY }}
-        run: |
-          set -euo pipefail
-          if [ "$REBUILD_DERIVED_ON_DEPLOY" != "true" ]; then
-            echo "Skipping rebuild:derived (set REBUILD_DERIVED_ON_DEPLOY=true when Qdrant/Neo4j + embeddings are configured)"
-            exit 0
-          fi
-          if [ -n "${RAILWAY_TOKEN:-}" ]; then
-            unset RAILWAY_API_TOKEN
-            railway run --service "$RAILWAY_SERVICE_ID" npm run rebuild:derived
-          else
-            unset RAILWAY_TOKEN
-            railway run --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" npm run rebuild:derived
-          fi

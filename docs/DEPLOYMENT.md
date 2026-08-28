@@ -278,18 +278,21 @@ Runs **after CI succeeds** on `main` (and manual **Run workflow**):
 
 | Path | Secrets | Where to create the token |
 |------|---------|---------------------------|
-| **A — recommended** | `RAILWAY_TOKEN` | Railway **project** → **Settings** → **Tokens** → Create **project token** |
-| **B — account token** | `RAILWAY_API_TOKEN` + `RAILWAY_PROJECT_ID` | Railway **Account Settings** → **Tokens** → Create token; Project ID from project → Settings |
+| **A — recommended** | `RAILWAY_TOKEN` | Railway **project** → **Settings** → **Tokens** → Create token for **production** environment |
+| **B — account token** | `RAILWAY_API_TOKEN` + `RAILWAY_PROJECT_ID` | [railway.com/account/tokens](https://railway.com/account/tokens) + Project ID from project → Settings |
 
-Do **not** put an account token in `RAILWAY_TOKEN`. The CLI treats that variable as a **project-scoped** token only.
+Do **not** put an account token in `RAILWAY_TOKEN`. Account tokens must use `RAILWAY_API_TOKEN` (the CLI uses different auth headers internally).
 
-If you use GitHub **Environments** (`production`), set these secrets on the environment (Settings → Environments → production), not only at repo level.
+Set secrets on GitHub **Environment → production** (the deploy workflow uses `environment: production`).
+
+Optional: `RAILWAY_ENVIRONMENT` = Railway environment name (default `production` if unset).
 
 #### Optional GitHub secrets
 
 | Secret | When |
 |--------|------|
-| `RAILWAY_PROJECT_ID` | Required only for path B (`RAILWAY_API_TOKEN`) |
+| `RAILWAY_PROJECT_ID` | Required for path B (`RAILWAY_API_TOKEN`) |
+| `RAILWAY_ENVIRONMENT` | Railway environment name (default `production`) |
 | `REBUILD_DERIVED_ON_DEPLOY` | Set to `true` after Qdrant, Neo4j, and embedding vars exist on Railway |
 
 #### Railway variables (set once in Railway UI — not in GitHub)
