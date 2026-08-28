@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit + architecture
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run check:deps
+      - run: npm test
+
+  integration:
+    name: Integration (Postgres + Redis)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: unit
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: clinic
+          POSTGRES_PASSWORD: clinic
+          POSTGRES_DB: clinic_voice_ai
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U clinic -d clinic_voice_ai"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 63799:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://clinic:clinic@127.0.0.1:54329/clinic_voice_ai
+      REDIS_URL: redis://127.0.0.1:63799
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Wait for Postgres
+        run: |
+          node --input-type=module <<'EOF'
+          import pg from 'pg';
+          const url = process.env.DATABASE_URL;
+          for (let i = 0; i < 40; i++) {
+            const client = new pg.Client({ connectionString: url });
+            try {
+              await client.connect();
+              await client.query('select 1');
+              await client.end();
+              console.log('postgres ready');
+              process.exit(0);
+            } catch {
+              try { await client.end(); } catch { /* ignore */ }
+              await new Promise((r) => setTimeout(r, 500));
+            }
+          }
+          console.error('postgres not ready');
+          process.exit(1);
+          EOF
+      - name: Migrate
+        run: npm run db:migrate
+      - name: Integration tests
+        run: npm run test:integration
+        # Live OpenRouter / Qdrant / Neo4j remain opt-in and are not required for PR CI.

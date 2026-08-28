@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+coverage/
+*.tsbuildinfo
+
+# Secrets and local env (never commit)
+.env
+.env.*
+!.env.example
+.env.local
+.env.*.local
+
+# Logs and caches
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.turbo/
+.cache/
+tmp/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDE (local only)
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# Cursor local workspace state (rules live in repo separately if you choose to track them)
+.cursor/
+
+# Local evaluation and test artifacts
+evaluation-results/
+vitest-report/
+test-results/
+playwright-report/
+
+# Optional local Docker override (not the main compose file)
+docker-compose.override.yml
+
+# Misc
+*.pem
+*.key
+credentials.json
+service-account*.json

@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: clinic-voice-ai-postgres
+    environment:
+      POSTGRES_USER: clinic
+      POSTGRES_PASSWORD: clinic
+      POSTGRES_DB: clinic_voice_ai
+    ports:
+      - '54329:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U clinic -d clinic_voice_ai']
+      interval: 2s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - clinic_voice_ai_pg:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: clinic-voice-ai-redis
+    ports:
+      - '63799:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - clinic_voice_ai_redis:/data
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.1
+    container_name: clinic-voice-ai-qdrant
+    ports:
+      - '63339:6333'
+    volumes:
+      - clinic_voice_ai_qdrant:/qdrant/storage
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: clinic-voice-ai-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/clinic-voice-ai
+    ports:
+      # Host ports must be ≤65535 (76887/74747 were invalid).
+      - '17687:7687'
+      - '17474:7474'
+    volumes:
+      - clinic_voice_ai_neo4j:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:7474 || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  clinic_voice_ai_pg:
+  clinic_voice_ai_redis:
+  clinic_voice_ai_qdrant:
+  clinic_voice_ai_neo4j:

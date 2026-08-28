@@ -1,0 +1,15 @@
+# Railway service config — see docs/DEPLOYMENT.md
+# Migrations run automatically before each deploy (release phase).
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Runs with Railway env vars (DATABASE_URL from linked Postgres) before new version goes live.
+releaseCommand = "npm run db:migrate"
