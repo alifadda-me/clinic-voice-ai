@@ -728,22 +728,20 @@ Production Postgres starts **empty**. Doctor chat search reads **Qdrant** (seman
 
 ### 1. Seed Postgres (31 doctors, 11 specialties)
 
-**On Railway** (recommended — uses linked `DATABASE_URL`):
+Runs **migrations automatically** if the schema is missing, then loads demo data.
+
+**On Railway** (SSH console or `railway run`, linked to the **app** service):
 
 ```bash
-railway run npm run db:seed
+npm run db:seed:full
 ```
 
-**Local** (with production `DATABASE_URL` exported):
+Or step by step:
 
 ```bash
-DATABASE_URL='postgresql://...' npm run db:seed
-```
-
-Skip if doctors already exist:
-
-```bash
-railway run npm run db:seed -- --if-empty
+npm run db:migrate    # if you prefer explicit migrate
+npm run db:seed
+npm run rebuild:derived
 ```
 
 Catalog includes **Dr Sara Hassan** (Cardiology), **Dr Omar Nabil** (Dermatology), plus pediatrics, orthopedics, ENT, ophthalmology, gynecology, neurology, psychiatry, general practice, and internal medicine.
