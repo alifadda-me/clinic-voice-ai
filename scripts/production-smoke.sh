@@ -10,7 +10,7 @@ echo "=== Production smoke (safe checks only) ==="
 echo "Base URL: ${BASE}"
 echo ""
 echo "WARNING: Do not book/cancel real patient appointments without a dedicated test patient."
-echo "Full manual scenarios: docs/TESTING.md (Production smoke section)."
+echo "Full manual scenarios: docs/TEST_SCENARIOS.md and docs/TESTING.md"
 echo ""
 
 npm run production:check

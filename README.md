@@ -61,7 +61,8 @@ Chat / Voice / Phone
 
 | Doc | Purpose |
 |-----|---------|
-| [docs/TESTING.md](docs/TESTING.md) | How to test everything (step by step) |
+| [docs/TEST_SCENARIOS.md](docs/TEST_SCENARIOS.md) | **Scenario playbook** — smoke → booking → security (curl + Arabic examples) |
+| [docs/TESTING.md](docs/TESTING.md) | How to test everything (setup, automation, deep detail) |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deploy on Railway |
 | [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) | Every environment variable |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | Day-to-day commands |

@@ -1,7 +1,10 @@
 name: Deploy to Railway
 
 # Runs after CI succeeds on main, or manual dispatch.
-# GitHub secrets: RAILWAY_TOKEN, RAILWAY_SERVICE_ID, APP_BASE_URL (optional but recommended)
+# GitHub secrets (pick ONE auth path):
+#   A) RAILWAY_TOKEN — project token (Project → Settings → Tokens)
+#   B) RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID — account token (Account → Tokens)
+# Also: RAILWAY_SERVICE_ID, APP_BASE_URL (optional)
 # See docs/DEPLOYMENT.md
 
 on:
@@ -33,14 +36,31 @@ jobs:
       - name: Validate secrets
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
         run: |
-          if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "::error::Missing GitHub secret RAILWAY_TOKEN"
+          if [ -z "$RAILWAY_SERVICE_ID" ]; then
+            echo "::error::Missing GitHub secret RAILWAY_SERVICE_ID (app service → Settings → Service ID)"
             exit 1
           fi
-          if [ -z "$RAILWAY_SERVICE_ID" ]; then
-            echo "::error::Missing GitHub secret RAILWAY_SERVICE_ID"
+          if [ -n "$RAILWAY_TOKEN" ] && [ -n "$RAILWAY_API_TOKEN" ]; then
+            echo "::warning::Both RAILWAY_TOKEN and RAILWAY_API_TOKEN are set. Using RAILWAY_TOKEN (project token)."
+          fi
+          if [ -n "$RAILWAY_TOKEN" ]; then
+            echo "Railway auth: project token (RAILWAY_TOKEN)"
+          elif [ -n "$RAILWAY_API_TOKEN" ]; then
+            if [ -z "$RAILWAY_PROJECT_ID" ]; then
+              echo "::error::RAILWAY_API_TOKEN is set but RAILWAY_PROJECT_ID is missing."
+              echo "Account tokens need --project. Add RAILWAY_PROJECT_ID (Project → Settings → Project ID)."
+              exit 1
+            fi
+            echo "Railway auth: account token (RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID)"
+          else
+            echo "::error::Missing Railway credentials. Set ONE of:"
+            echo "  • RAILWAY_TOKEN — project token from Railway project → Settings → Tokens"
+            echo "  • RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID — account token from Account Settings → Tokens"
+            echo "Common mistake: account token in RAILWAY_TOKEN causes 'Unauthorized' on railway up."
             exit 1
           fi
 
@@ -57,13 +77,34 @@ jobs:
       - name: Deploy application
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --service "${{ secrets.RAILWAY_SERVICE_ID }}" --ci
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+        run: |
+          set -euo pipefail
+          if [ -n "${RAILWAY_TOKEN:-}" ]; then
+            unset RAILWAY_API_TOKEN
+            railway up --service "$RAILWAY_SERVICE_ID" --ci
+          else
+            unset RAILWAY_TOKEN
+            railway up --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --ci
+          fi
 
       - name: Run database migrations (remote)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
         run: |
-          railway run --service "${{ secrets.RAILWAY_SERVICE_ID }}" npm run db:migrate
+          set -euo pipefail
+          if [ -n "${RAILWAY_TOKEN:-}" ]; then
+            unset RAILWAY_API_TOKEN
+            railway run --service "$RAILWAY_SERVICE_ID" npm run db:migrate
+          else
+            unset RAILWAY_TOKEN
+            railway run --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" npm run db:migrate
+          fi
 
       - name: Post-deploy health check
         env:
@@ -79,10 +120,20 @@ jobs:
       - name: Optional derived index rebuild
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
           REBUILD_DERIVED_ON_DEPLOY: ${{ secrets.REBUILD_DERIVED_ON_DEPLOY }}
         run: |
+          set -euo pipefail
           if [ "$REBUILD_DERIVED_ON_DEPLOY" != "true" ]; then
             echo "Skipping rebuild:derived (set REBUILD_DERIVED_ON_DEPLOY=true when Qdrant/Neo4j + embeddings are configured)"
             exit 0
           fi
-          railway run --service "${{ secrets.RAILWAY_SERVICE_ID }}" npm run rebuild:derived
+          if [ -n "${RAILWAY_TOKEN:-}" ]; then
+            unset RAILWAY_API_TOKEN
+            railway run --service "$RAILWAY_SERVICE_ID" npm run rebuild:derived
+          else
+            unset RAILWAY_TOKEN
+            railway run --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" npm run rebuild:derived
+          fi

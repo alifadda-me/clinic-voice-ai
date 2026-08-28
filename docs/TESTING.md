@@ -8,6 +8,7 @@ Use Egyptian Arabic example phrases where it helps. The agent prefers **عامي
 
 Related docs:
 
+- **[Test scenarios (scenario playbook)](TEST_SCENARIOS.md)** — smoke → booking → security, curl + Arabic examples
 - [Environment variables](ENVIRONMENT.md)
 - [Deployment](DEPLOYMENT.md)
 - [Operations](OPERATIONS.md)

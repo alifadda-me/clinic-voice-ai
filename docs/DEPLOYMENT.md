@@ -271,14 +271,25 @@ Runs **after CI succeeds** on `main` (and manual **Run workflow**):
 
 | Secret | Where to get it |
 |--------|-----------------|
-| `RAILWAY_TOKEN` | Railway → Account Settings → Tokens → Create token |
-| `RAILWAY_SERVICE_ID` | App service → Settings → copy Service ID |
+| `RAILWAY_SERVICE_ID` | App service → Settings → copy **Service ID** |
 | `APP_BASE_URL` | Public URL, e.g. `https://your-app.up.railway.app` (no trailing slash) |
+
+**Railway auth — use ONE of these paths** (wrong token type → `Unauthorized` on `railway up`):
+
+| Path | Secrets | Where to create the token |
+|------|---------|---------------------------|
+| **A — recommended** | `RAILWAY_TOKEN` | Railway **project** → **Settings** → **Tokens** → Create **project token** |
+| **B — account token** | `RAILWAY_API_TOKEN` + `RAILWAY_PROJECT_ID` | Railway **Account Settings** → **Tokens** → Create token; Project ID from project → Settings |
+
+Do **not** put an account token in `RAILWAY_TOKEN`. The CLI treats that variable as a **project-scoped** token only.
+
+If you use GitHub **Environments** (`production`), set these secrets on the environment (Settings → Environments → production), not only at repo level.
 
 #### Optional GitHub secrets
 
 | Secret | When |
 |--------|------|
+| `RAILWAY_PROJECT_ID` | Required only for path B (`RAILWAY_API_TOKEN`) |
 | `REBUILD_DERIVED_ON_DEPLOY` | Set to `true` after Qdrant, Neo4j, and embedding vars exist on Railway |
 
 #### Railway variables (set once in Railway UI — not in GitHub)
