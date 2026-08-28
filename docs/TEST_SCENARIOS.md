@@ -197,6 +197,15 @@ curl -sS -X POST "$BASE/v1/chat" \
 | Pass | Agent searches doctor, then `get_available_appointments` with ISO `from`/`to` |
 | Fail | Claims specific slots without tool success |
 
+**Why availability fails in production:** Demo doctors use placeholder calendar ids (`cal_sara_hassan`). Google Calendar needs a real calendar (`GOOGLE_CALENDAR_ID`, often `primary`). The app maps `cal_*` → shared calendar automatically; you still need:
+
+1. `GOOGLE_CALENDAR_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_CALENDAR_PRIVATE_KEY` on Railway  
+2. `GOOGLE_CALENDAR_ID=primary` (or a shared clinic calendar id)  
+3. Share that Google calendar with the service account email (Make changes to events)  
+4. `GOOGLE_CALENDAR_TIMEZONE=Africa/Cairo`
+
+If tools show `get_available_appointments` repeatedly but the reply says the service is unavailable, check Railway logs for Google API errors.
+
 ### S1.6 — Validation errors
 
 **Missing conversation header:**

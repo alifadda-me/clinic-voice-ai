@@ -103,6 +103,19 @@ describe('GoogleCalendarGateway adapter', () => {
     expect(reservation.slot).toBeInstanceOf(TimeSlot);
   });
 
+  it('maps demo cal_* resource ids to defaultCalendarId', async () => {
+    const { api, gateway } = create();
+    await gateway.findAvailableSlots({
+      resourceId: 'cal_sara_hassan',
+      range: {
+        start: new Date('2026-08-25T09:00:00.000Z'),
+        end: new Date('2026-08-25T11:00:00.000Z'),
+      },
+      slotDurationMinutes: 30,
+    });
+    expect(api.lastFreeBusyCalendarId).toBe('primary');
+  });
+
   it('requires a calendar resource id when none configured', async () => {
     const api = new FakeGoogleCalendarApiClient();
     const gateway = new GoogleCalendarGateway(api, { timeZone: 'UTC' });

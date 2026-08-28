@@ -313,8 +313,19 @@ export type DemoClinicCatalog = {
   doctors: Doctor[];
 };
 
+export type BuildDemoClinicCatalogOptions = {
+  /**
+   * Google Calendar id shared by demo doctors (GOOGLE_CALENDAR_ID).
+   * When omitted, seed keeps cal_* placeholders; GoogleCalendarGateway maps those to defaultCalendarId.
+   */
+  calendarResourceId?: string;
+};
+
 /** Build domain entities for the demo clinic catalog (deterministic ids for idempotent seed). */
-export function buildDemoClinicCatalog(clinicId: ClinicId): DemoClinicCatalog {
+export function buildDemoClinicCatalog(
+  clinicId: ClinicId,
+  options: BuildDemoClinicCatalogOptions = {},
+): DemoClinicCatalog {
   const specialtyByName = new Map<string, Specialty>();
 
   for (const seed of SPECIALTY_SEEDS) {
@@ -342,7 +353,8 @@ export function buildDemoClinicCatalog(clinicId: ClinicId): DemoClinicCatalog {
       specialtyIds,
       bio: seed.bio,
       active: seed.active ?? true,
-      calendarResourceId: seed.calendarResourceId,
+      calendarResourceId:
+        options.calendarResourceId?.trim() || seed.calendarResourceId,
     });
   });
 

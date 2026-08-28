@@ -103,7 +103,14 @@ async function main(): Promise<void> {
       infra.repositories.specialties,
       infra.repositories.doctors,
     );
-    const result = await seed.execute({ clinicId, ifEmpty });
+    const calendarResourceId =
+      process.env.SEED_CALENDAR_RESOURCE_ID?.trim() ||
+      process.env.GOOGLE_CALENDAR_ID?.trim();
+    const result = await seed.execute({
+      clinicId,
+      ifEmpty,
+      ...(calendarResourceId ? { calendarResourceId } : {}),
+    });
 
     // eslint-disable-next-line no-console
     console.log(

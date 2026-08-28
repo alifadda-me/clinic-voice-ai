@@ -184,13 +184,24 @@ export class GoogleCalendarGateway implements CalendarGateway {
   }
 
   private resolveCalendarId(resourceId: string): string {
-    const id = resourceId.trim() || this.config.defaultCalendarId || '';
-    if (!id) {
-      throw new CalendarConfigurationError(
-        'Calendar resource id is required',
-      );
+    const trimmed = resourceId.trim();
+    const fallback = this.config.defaultCalendarId?.trim() || '';
+
+    if (!trimmed) {
+      if (!fallback) {
+        throw new CalendarConfigurationError(
+          'Calendar resource id is required',
+        );
+      }
+      return fallback;
     }
-    return id;
+
+    // Demo seed uses cal_* placeholders — use the shared clinic calendar (GOOGLE_CALENDAR_ID).
+    if (trimmed.startsWith('cal_') && fallback && !trimmed.includes('@')) {
+      return fallback;
+    }
+
+    return trimmed;
   }
 }
 

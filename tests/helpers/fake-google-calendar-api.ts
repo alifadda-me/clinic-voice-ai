@@ -15,6 +15,7 @@ export class FakeGoogleCalendarApiClient implements GoogleCalendarApiClient {
   failNext?: Error | undefined;
   lastInsertTimeZone?: string | undefined;
   lastFreeBusyTimeZone?: string | undefined;
+  lastFreeBusyCalendarId?: string | undefined;
 
   private key(calendarId: string, eventId: string): string {
     return `${calendarId}::${eventId}`;
@@ -36,6 +37,7 @@ export class FakeGoogleCalendarApiClient implements GoogleCalendarApiClient {
   }): Promise<GoogleBusyPeriod[]> {
     this.maybeFail();
     this.lastFreeBusyTimeZone = params.timeZone;
+    this.lastFreeBusyCalendarId = params.calendarId;
     return this.busy.filter(
       (b) => b.start < params.timeMax && params.timeMin < b.end,
     );

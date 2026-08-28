@@ -9,6 +9,8 @@ export type SeedDemoClinicInput = {
   clinicId: ClinicId;
   /** When true, skip seeding if any doctor already exists in Postgres. */
   ifEmpty?: boolean;
+  /** Shared Google Calendar id for all demo doctors (GOOGLE_CALENDAR_ID). */
+  calendarResourceId?: string;
 };
 
 export type SeedDemoClinicResult = {
@@ -37,7 +39,11 @@ export class SeedDemoClinic {
       }
     }
 
-    const catalog = buildDemoClinicCatalog(input.clinicId);
+    const catalog = buildDemoClinicCatalog(input.clinicId, {
+      ...(input.calendarResourceId
+        ? { calendarResourceId: input.calendarResourceId }
+        : {}),
+    });
 
     for (const specialty of catalog.specialties) {
       await this.specialties.save(specialty);
