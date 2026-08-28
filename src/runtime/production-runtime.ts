@@ -11,6 +11,7 @@ import { createNeo4jKnowledgeGraph } from '../infrastructure/graph/neo4j/create-
 import { createOpenRouterChatModel } from '../infrastructure/llm/openrouter/create-openrouter-chat-model.js';
 import { createOpenRouterEmbeddingProvider } from '../infrastructure/llm/openrouter/create-openrouter-embedding-provider.js';
 import { createRedisWorkingMemory } from '../infrastructure/memory/redis/index.js';
+import { createGeminiLiveVoiceProviderFromEnv } from '../infrastructure/voice/index.js';
 import { JwtBearerAuthGateway } from '../infrastructure/auth/index.js';
 import { InMemoryConversationRegistry } from '../agent/index.js';
 import type { ConversationRegistry } from '../agent/index.js';
@@ -170,17 +171,23 @@ export async function createProductionRuntime(
     observability,
   });
 
+  const resolvedVoiceProvider =
+    input.voiceProvider ??
+    (config.enableVoice || config.enableTwilio
+      ? createGeminiLiveVoiceProviderFromEnv(env)
+      : undefined);
+
   let voiceStack: VoiceStack | undefined;
   if (config.enableVoice) {
-    if (!input.voiceProvider) {
+    if (!resolvedVoiceProvider) {
       throw new Error(
-        'ENABLE_VOICE=true requires an injected LiveVoiceProvider (Gemini or test fake)',
+        'ENABLE_VOICE=true requires GEMINI_API_KEY or an injected LiveVoiceProvider',
       );
     }
     voiceStack = createProductionVoiceStack({
       mode: 'production',
       authGateway,
-      voiceProvider: input.voiceProvider,
+      voiceProvider: resolvedVoiceProvider,
       useCases: clinicTools,
       principalPatients: infra.repositories.principalPatients,
       workingMemory: redis.workingMemory,
@@ -196,11 +203,10 @@ export async function createProductionRuntime(
         'ENABLE_TWILIO=true requires TWILIO_AUTH_TOKEN, TWILIO_VOICE_WEBHOOK_URL, TWILIO_MEDIA_STREAM_WS_URL',
       );
     }
-    const voiceProvider =
-      input.voiceProvider ?? voiceStack?.voiceProvider;
+    const voiceProvider = resolvedVoiceProvider ?? voiceStack?.voiceProvider;
     if (!voiceProvider) {
       throw new Error(
-        'ENABLE_TWILIO=true requires LiveVoiceProvider (inject or ENABLE_VOICE)',
+        'ENABLE_TWILIO=true requires GEMINI_API_KEY with voice enabled, or an injected LiveVoiceProvider',
       );
     }
     twilioStack = createProductionTwilioPstnStack({

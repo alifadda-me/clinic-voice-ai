@@ -4,6 +4,7 @@ export {
   type ScriptedVoiceEvent,
 } from './scripted/scripted-live-voice-provider.js';
 export { GeminiLiveVoiceProvider } from './gemini-live/gemini-live-voice-provider.js';
+export { createGeminiLiveVoiceProviderFromEnv } from './gemini-live/create-gemini-live-voice-provider.js';
 export { createSdkGeminiLiveTransport } from './gemini-live/create-sdk-gemini-live-transport.js';
 export type {
   GeminiLiveTransport,
