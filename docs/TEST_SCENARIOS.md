@@ -722,17 +722,63 @@ npm run db:setup && npm run test:integration
 
 ---
 
-## Sample data (local integration tests)
+## Sample data — seed production (required for doctor search)
 
-When you run `npm run test:integration`, tests seed:
+Production Postgres starts **empty**. Doctor chat search reads **Qdrant** (semantic index), which is built from Postgres — so you need **both** steps:
 
-| Entity | Example |
-|--------|---------|
-| Cardiologist | Dr Sara Hassan |
-| Dermatologist | Dr Omar Nabil |
-| Specialties | Cardiology, Dermatology |
+### 1. Seed Postgres (31 doctors, 11 specialties)
 
-**Production Railway** does not auto-seed demo doctors. For manual testing you must insert clinic/doctor rows (or import seed SQL) before S1.2–S4 return meaningful results.
+**On Railway** (recommended — uses linked `DATABASE_URL`):
+
+```bash
+railway run npm run db:seed
+```
+
+**Local** (with production `DATABASE_URL` exported):
+
+```bash
+DATABASE_URL='postgresql://...' npm run db:seed
+```
+
+Skip if doctors already exist:
+
+```bash
+railway run npm run db:seed -- --if-empty
+```
+
+Catalog includes **Dr Sara Hassan** (Cardiology), **Dr Omar Nabil** (Dermatology), plus pediatrics, orthopedics, ENT, ophthalmology, gynecology, neurology, psychiatry, general practice, and internal medicine.
+
+### 2. Rebuild search index (Qdrant + Neo4j)
+
+Requires Railway env: `QDRANT_URL`, `EMBEDDING_API_KEY`, `NEO4J_*`, etc.
+
+```bash
+railway run npm run rebuild:derived
+```
+
+Or one command:
+
+```bash
+railway run npm run db:seed:full
+```
+
+### 3. Verify
+
+```bash
+export CONV=$(curl -sS -X POST "$BASE/v1/conversations" | jq -r .conversationId)
+curl -sS -X POST "$BASE/v1/chat" \
+  -H 'Content-Type: application/json' \
+  -H "x-conversation-id: $CONV" \
+  -d '{"message":"عايز دكتور قلب"}' | jq .
+```
+
+Expected: reply lists cardiologists (e.g. Dr Sara Hassan), `search_doctors` in `toolsInvoked`.
+
+---
+
+## Sample data (integration tests only)
+
+When you run `npm run test:integration`, tests seed 2 doctors in an isolated harness — not your production DB.
 
 ---
 

@@ -26,7 +26,9 @@ Full local stack (adds search + graph helpers):
 
 ```bash
 npm run services:up:all
-npm run rebuild:derived      # after you have doctors/prefs in Postgres
+npm run db:seed              # 31 demo doctors + 11 specialties
+npm run rebuild:derived      # index doctors in Qdrant for search
+# or: npm run db:seed:full
 ```
 
 Start the HTTP server (production mode settings in `.env`):

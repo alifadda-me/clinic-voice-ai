@@ -182,6 +182,24 @@ Run migrations **before** sending user traffic.
 
 ---
 
+## Step 8b — Seed demo clinic data
+
+After migrations, load doctors and specialties for discovery demos:
+
+```bash
+# Railway (uses linked DATABASE_URL on the app service)
+railway run npm run db:seed
+
+# Seed + rebuild Qdrant/Neo4j search (needs full production env vars)
+railway run npm run db:seed:full
+```
+
+This inserts **31 doctors** across **11 specialties** (Cardiology, Dermatology, Pediatrics, …) with stable ids — safe to re-run (upserts by id). Use `--if-empty` or `SEED_IF_EMPTY=true` to skip when data already exists.
+
+**Important:** `search_doctors` in chat uses **Qdrant**, not Postgres alone. Always run `npm run rebuild:derived` after seeding (included in `db:seed:full`).
+
+---
+
 ## Step 9 — Rebuild search and graph
 
 After you seed doctors/specialties (and preferences/completed visits for affinity):
