@@ -2,10 +2,13 @@ name: Deploy to Railway
 
 # Runs after CI succeeds on main, or manual dispatch.
 #
-# Railway auth — set on GitHub Environment "production" (Settings → Environments):
-#   A) RAILWAY_TOKEN — project token (Project → Settings → Tokens, pick production env)
+# Railway auth — GitHub Environment "production" (Settings → Environments):
+#   A) RAILWAY_TOKEN — project token (Project → Settings → Tokens, production env)
 #   B) RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID — account token (railway.com/account/tokens)
+# Do not set both A and B — pick one path.
+#
 # Also: RAILWAY_SERVICE_ID, optional RAILWAY_ENVIRONMENT (default: production), APP_BASE_URL
+# Optional ops secrets: SEED_ON_DEPLOY=true, REBUILD_DERIVED_ON_DEPLOY=true
 # See docs/DEPLOYMENT.md
 
 on:
@@ -21,7 +24,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Railway deploy + migrate
+    name: Railway deploy
     runs-on: ubuntu-latest
     container: ghcr.io/railwayapp/cli:latest
     if: >
@@ -48,23 +51,22 @@ jobs:
             exit 1
           fi
           if [ -n "$RAILWAY_TOKEN" ] && [ -n "$RAILWAY_API_TOKEN" ]; then
-            echo "::warning::Both RAILWAY_TOKEN and RAILWAY_API_TOKEN are set. Prefer project token (A) only, or account token (B) only."
+            echo "::warning::Both RAILWAY_TOKEN and RAILWAY_API_TOKEN are set — remove one. Project-token path wins and may fail if RAILWAY_TOKEN is wrong."
           fi
           if [ -n "$RAILWAY_TOKEN" ]; then
-            echo "Railway auth: project token → RAILWAY_TOKEN (must be from Project → Settings → Tokens)"
+            echo "Railway auth: project token (RAILWAY_TOKEN)"
           elif [ -n "$RAILWAY_API_TOKEN" ]; then
             if [ -z "$RAILWAY_PROJECT_ID" ]; then
-              echo "::error::RAILWAY_API_TOKEN set but RAILWAY_PROJECT_ID missing (Project → Settings → Project ID)"
+              echo "::error::RAILWAY_API_TOKEN set but RAILWAY_PROJECT_ID missing"
               exit 1
             fi
-            echo "Railway auth: account token → RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID"
+            echo "Railway auth: account token (RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID)"
           else
-            echo "::error::Missing Railway credentials. Set ONE of:"
-            echo "  A) RAILWAY_TOKEN — project token (NOT from Account Settings)"
-            echo "  B) RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID — account token"
+            echo "::error::Missing Railway credentials (RAILWAY_TOKEN or RAILWAY_API_TOKEN + RAILWAY_PROJECT_ID)"
             exit 1
           fi
           echo "RAILWAY_ENVIRONMENT=${RAILWAY_ENVIRONMENT:-production}"
+          echo "DB migrations: handled by railway.toml releaseCommand during deploy (not railway run in CI)."
 
       - name: Deploy application
         env:
@@ -88,38 +90,68 @@ jobs:
               --ci
           fi
 
-      - name: Run database migrations (remote)
+  ops:
+    name: Seed / rebuild (optional)
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@4.5.3
+
+      - name: Optional db:seed and rebuild:derived
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
           RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
+          SEED_ON_DEPLOY: ${{ secrets.SEED_ON_DEPLOY }}
           REBUILD_DERIVED_ON_DEPLOY: ${{ secrets.REBUILD_DERIVED_ON_DEPLOY }}
         run: |
           set -euo pipefail
           ENV_NAME="${RAILWAY_ENVIRONMENT:-production}"
-          if [ -n "${RAILWAY_TOKEN:-}" ]; then
-            unset RAILWAY_API_TOKEN
-            railway run --service "$RAILWAY_SERVICE_ID" --environment "$ENV_NAME" npm run db:migrate
-          else
-            unset RAILWAY_TOKEN
-            railway run \
-              --project "$RAILWAY_PROJECT_ID" \
-              --service "$RAILWAY_SERVICE_ID" \
-              --environment "$ENV_NAME" \
-              npm run db:migrate
-          fi
-          if [ "${REBUILD_DERIVED_ON_DEPLOY:-}" = "true" ]; then
+
+          railway_run() {
             if [ -n "${RAILWAY_TOKEN:-}" ]; then
-              railway run --service "$RAILWAY_SERVICE_ID" --environment "$ENV_NAME" npm run rebuild:derived
+              unset RAILWAY_API_TOKEN
+              railway run --service "$RAILWAY_SERVICE_ID" --environment "$ENV_NAME" "$@"
             else
+              unset RAILWAY_TOKEN
               railway run \
                 --project "$RAILWAY_PROJECT_ID" \
                 --service "$RAILWAY_SERVICE_ID" \
                 --environment "$ENV_NAME" \
-                npm run rebuild:derived
+                "$@"
             fi
+          }
+
+          if [ "${SEED_ON_DEPLOY:-}" = "true" ]; then
+            echo "Running db:seed (--if-empty) via railway run (local Node + Railway env)..."
+            railway_run npm run db:seed -- --if-empty
+          else
+            echo "Skipping db:seed (set SEED_ON_DEPLOY=true to seed demo doctors on deploy)"
+          fi
+
+          if [ "${REBUILD_DERIVED_ON_DEPLOY:-}" = "true" ]; then
+            echo "Running rebuild:derived via railway run..."
+            railway_run npm run rebuild:derived
           else
             echo "Skipping rebuild:derived (set REBUILD_DERIVED_ON_DEPLOY=true when Qdrant/Neo4j + embeddings are configured)"
           fi

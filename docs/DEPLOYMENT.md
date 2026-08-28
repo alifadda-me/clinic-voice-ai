@@ -279,9 +279,9 @@ File: `.github/workflows/deploy.yml`
 Runs **after CI succeeds** on `main` (and manual **Run workflow**):
 
 1. Deploy with Railway CLI (`railway up`)
-2. Run `npm run db:migrate` on Railway (also configured in `railway.toml` `releaseCommand`)
-3. Hit `/health` and `/ready` if `APP_BASE_URL` is set
-4. Optionally `npm run rebuild:derived` if `REBUILD_DERIVED_ON_DEPLOY=true`
+2. Migrations run on Railway via `railway.toml` `releaseCommand` (`npm run db:migrate`) — not `railway run` in CI (CLI container has no Node)
+3. Optional `ops` job: `db:seed` if `SEED_ON_DEPLOY=true`, `rebuild:derived` if `REBUILD_DERIVED_ON_DEPLOY=true`
+4. Hit `/health` and `/ready` if `APP_BASE_URL` is set
 
 **Turn off double deploy:** In Railway, disable auto-deploy on the app service if GitHub Actions deploys for you (Settings → disable GitHub auto-deploy, keep the repo connected only for builds if needed).
 
@@ -311,6 +311,7 @@ Optional: `RAILWAY_ENVIRONMENT` = Railway environment name (default `production`
 |--------|------|
 | `RAILWAY_PROJECT_ID` | Required for path B (`RAILWAY_API_TOKEN`) |
 | `RAILWAY_ENVIRONMENT` | Railway environment name (default `production`) |
+| `SEED_ON_DEPLOY` | Set to `true` to run `npm run db:seed -- --if-empty` after deploy (needs Node on CI runner — see deploy workflow `ops` job) |
 | `REBUILD_DERIVED_ON_DEPLOY` | Set to `true` after Qdrant, Neo4j, and embedding vars exist on Railway |
 
 #### Railway variables (set once in Railway UI — not in GitHub)
