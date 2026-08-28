@@ -7,6 +7,7 @@ import type { EnrollAuthenticatedPatient } from '../../application/identity/enro
 import type { LinkPrincipalToPatient } from '../../application/identity/link-principal-to-patient.js';
 import { createChatRouter } from './chat-router.js';
 import { createHealthRouter, type HealthProbes } from './health-router.js';
+import { mountTestConsole } from './mount-test-console.js';
 import { errorMiddleware } from './map-error.js';
 
 /**
@@ -34,6 +35,7 @@ export function createProductionHttpApp(deps: {
   app.disable('x-powered-by');
 
   app.use(createHealthRouter(deps.health));
+  mountTestConsole(app);
 
   if (deps.twilioRouter) {
     app.use(express.urlencoded({ extended: false }));

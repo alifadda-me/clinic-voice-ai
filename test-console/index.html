@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clinic Voice AI — Test Console</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Clinic Voice AI — Test Console</h1>
+      <p>
+        Manual scenarios from
+        <code>docs/TEST_SCENARIOS.md</code>
+        · Open from your deployed app at
+        <strong>/test-console/</strong>
+      </p>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="panel">
+          <h2>Connection</h2>
+          <div class="field">
+            <label class="checkbox-label">
+              <input type="checkbox" id="useSameOrigin" checked />
+              Use same origin as this page (recommended)
+            </label>
+          </div>
+          <div class="field">
+            <label for="baseUrl">Base URL (when cross-origin)</label>
+            <input
+              type="url"
+              id="baseUrl"
+              placeholder="https://clinic-voice-ai-production-3202.up.railway.app"
+            />
+          </div>
+          <div class="row">
+            <span id="connStatus" class="status-pill ok">—</span>
+            <button type="button" id="btnHealth">Health</button>
+            <button type="button" id="btnReady">Ready</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Auth &amp; identity</h2>
+          <div class="field">
+            <label for="jwt">JWT (Auth0 access token)</label>
+            <textarea id="jwt" placeholder="Paste Bearer token…"></textarea>
+          </div>
+          <div class="field">
+            <label for="conversationId">Conversation ID</label>
+            <input type="text" id="conversationId" placeholder="From S1.1" />
+          </div>
+          <div class="field">
+            <label for="patientId">Patient ID</label>
+            <input type="text" id="patientId" placeholder="From enroll" />
+          </div>
+          <div class="field">
+            <label for="testPhone">Test phone (enroll)</label>
+            <input type="text" id="testPhone" placeholder="+2010…" />
+          </div>
+          <div class="field">
+            <label for="fullName">Full name (enroll)</label>
+            <input type="text" id="fullName" value="محمود تست" />
+          </div>
+          <div class="row">
+            <button type="button" id="btnSave">Save</button>
+            <button type="button" id="btnFreshPhone">Fresh phone</button>
+            <button type="button" id="btnNewConv">New conv</button>
+          </div>
+          <div class="row" style="margin-top: 0.5rem">
+            <button type="button" class="primary" id="btnEnroll">Enroll</button>
+            <button type="button" id="btnLink">Link patient</button>
+          </div>
+        </div>
+
+        <div class="panel level-nav">
+          <h2>Scenario levels</h2>
+          <div id="levelNav"></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="panel">
+          <h2>Chat</h2>
+          <div id="chatThread" class="chat-thread">
+            <p class="empty">Run a scenario or send a message.</p>
+          </div>
+          <div class="chat-compose">
+            <label class="checkbox-label">
+              <input type="checkbox" id="sendWithJwt" checked />
+              Send chat with JWT (when pasted)
+            </label>
+            <textarea
+              id="chatInput"
+              placeholder="Type a message or pick a scenario…"
+              rows="2"
+            ></textarea>
+            <div class="row">
+              <button type="button" class="primary" id="btnSendChat">Send</button>
+              <button type="button" class="ghost" id="btnClearChat">Clear chat</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Scenarios — <span id="levelLabel">Level 0</span></h2>
+          <div id="scenarioList" class="scenario-list"></div>
+        </div>
+      </main>
+
+      <aside class="inspector">
+        <div class="panel">
+          <h3>JWT preview</h3>
+          <div id="jwtPreview" class="jwt-preview">—</div>
+        </div>
+        <div class="panel">
+          <div class="row" style="justify-content: space-between">
+            <h3 style="margin: 0">Request log</h3>
+            <button type="button" class="ghost" id="btnClearLog">Clear</button>
+          </div>
+          <div id="requestLog" class="log">
+            <p class="empty">API responses appear here.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Safety</h3>
+          <p style="font-size: 0.78rem; color: var(--muted); margin: 0">
+            Use test phones only. Booking/cancel/reschedule write real Postgres rows
+            on production.
+          </p>
+        </div>
+      </aside>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

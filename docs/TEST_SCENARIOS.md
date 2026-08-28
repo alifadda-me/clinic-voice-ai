@@ -33,6 +33,18 @@ export JWT='paste-your-access-token-here'
 
 The token’s `aud` must match `AUTH_AUDIENCE` and `iss` must match `AUTH_ISSUER` on the server.
 
+### Web test console (optional)
+
+After deploy, open **`{BASE}/test-console/`** in the browser (same origin as the API — no CORS setup).
+
+Example production URL:
+
+`https://clinic-voice-ai-production-3202.up.railway.app/test-console/`
+
+The UI covers Levels 0–6 from this doc: smoke checks, discovery chat, enroll/link, preferences, booking, cancel/reschedule, and security scenarios. Settings (base URL, JWT, conversation id) persist in `localStorage`.
+
+Leave **Use same origin** checked when opened from the deployed app.
+
 ### Helpers (optional)
 
 ```bash

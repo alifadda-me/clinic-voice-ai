@@ -1,0 +1,378 @@
+:root {
+  --bg: #0f1419;
+  --surface: #1a2332;
+  --surface2: #243044;
+  --border: #2d3a4f;
+  --text: #e8edf4;
+  --muted: #8b9cb3;
+  --accent: #3b82f6;
+  --accent-dim: #2563eb;
+  --ok: #22c55e;
+  --warn: #eab308;
+  --err: #ef4444;
+  --radius: 10px;
+  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr 340px;
+  gap: 0;
+  min-height: calc(100vh - 72px);
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar,
+  .inspector {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+.sidebar,
+.inspector,
+.main {
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 72px);
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.inspector {
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.panel {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem;
+  margin-bottom: 0.85rem;
+}
+
+.panel h2,
+.panel h3 {
+  margin: 0 0 0.65rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+input[type='text'],
+input[type='url'],
+textarea,
+select {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+textarea {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.field {
+  margin-bottom: 0.65rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent-dim);
+  color: #fff;
+}
+
+button.primary:hover {
+  background: var(--accent-dim);
+}
+
+button.ghost {
+  background: transparent;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.level-nav button {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 0.35rem;
+}
+
+.level-nav button.active {
+  border-color: var(--accent);
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.scenario-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.scenario-btn {
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+}
+
+.scenario-btn .id {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--accent);
+  display: block;
+}
+
+.scenario-btn .title {
+  font-size: 0.82rem;
+}
+
+.scenario-btn .hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 280px;
+  margin-bottom: 1rem;
+}
+
+.bubble {
+  max-width: 88%;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 2px;
+}
+
+.bubble.user[dir='rtl'] {
+  border-bottom-right-radius: var(--radius);
+  border-bottom-left-radius: 2px;
+}
+
+.bubble.assistant {
+  align-self: flex-start;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 2px;
+}
+
+.bubble.assistant[dir='rtl'] {
+  border-bottom-left-radius: var(--radius);
+  border-bottom-right-radius: 2px;
+}
+
+.bubble-meta {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.tag {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.tag.ok {
+  color: var(--ok);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.tag.warn {
+  color: var(--warn);
+}
+
+.chat-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat-compose textarea {
+  min-height: 3.5rem;
+}
+
+.status-pill {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-family: var(--mono);
+}
+
+.status-pill.ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--ok);
+}
+
+.status-pill.err {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--err);
+}
+
+.log {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.log-entry {
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0;
+}
+
+.log-entry .req {
+  color: var(--accent);
+}
+
+.log-entry .code-2 {
+  color: var(--ok);
+}
+
+.log-entry .code-4,
+.log-entry .code-5 {
+  color: var(--err);
+}
+
+.log-entry pre {
+  margin: 0.35rem 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--muted);
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.jwt-preview {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.checkbox-label input {
+  width: auto;
+}
