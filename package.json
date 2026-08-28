@@ -16,7 +16,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/bin/seed-clinic-data.ts",
-    "db:seed:full": "tsx src/bin/seed-clinic-data.ts && tsx src/bin/rebuild-derived-stores.ts all",
+    "db:seed:full": "tsx src/bin/seed-clinic-data.ts && tsx src/bin/rebuild-derived-stores.ts search",
     "db:up": "docker compose up -d postgres",
     "db:setup": "npm run db:up && npm run db:migrate",
     "db:reset:local": "bash scripts/db-reset-local.sh",

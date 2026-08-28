@@ -754,11 +754,13 @@ Requires Railway env: `QDRANT_URL`, `EMBEDDING_API_KEY`, `NEO4J_*`, etc.
 railway run npm run rebuild:derived
 ```
 
-Or one command:
+Or one command (seed + **search** index only — Neo4j graph is optional):
 
 ```bash
 railway run npm run db:seed:full
 ```
+
+For peer-affinity graph too (after Neo4j creds are correct): `npm run rebuild:graph`
 
 ### 3. Verify
 

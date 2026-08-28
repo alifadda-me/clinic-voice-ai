@@ -158,7 +158,13 @@ Neo4j stores a rebuildable graph for suggestions like peer affinity. It is **not
 
 Rebuild: `npm run rebuild:graph`
 
-Opt-in: `REAL_NEO4J=1`
+**Railway Neo4j auth errors** (`The client is unauthorized due to authentication failure`):
+
+1. On the **Neo4j** service → Variables → copy `NEO4J_URI` (must be `bolt://…:7687`, not `http://7474`), user, and password.
+2. On the **app** service, set `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` (reference Neo4j vars or paste the same values).
+3. Redeploy or restart app, then: `npm run rebuild:graph`
+
+Doctor search does **not** need Neo4j — only `rebuild:search` / Qdrant.
 
 ---
 
