@@ -16,6 +16,10 @@ import {
   type ClinicSeed,
   type ProductionTestHarness,
 } from '../../helpers/production-runtime-harness.js';
+import {
+  productionTestSlots,
+  type ProductionTestSlots,
+} from '../../helpers/future-appointment-slots.js';
 
 /**
  * Channel parity: HTTP chat, VoiceClinicSession, and TwilioPstnCallBridge
@@ -26,6 +30,7 @@ describe('Channel parity', () => {
   let depsAvailable = false;
   let harness: ProductionTestHarness;
   let seed: ClinicSeed;
+  let slots: ProductionTestSlots;
 
   beforeAll(async () => {
     depsAvailable = await canReachProductionTestDependencies();
@@ -49,6 +54,7 @@ describe('Channel parity', () => {
     await harness.resetDb();
     seed = await harness.seedClinicData();
     harness.voice.clearQueue();
+    slots = productionTestSlots();
   });
 
   it('shares the same BookAppointment use-case instance across stacks', async ({
@@ -94,8 +100,8 @@ describe('Channel parity', () => {
             name: 'book_appointment',
             arguments: {
               doctorId: seed.drSara.id,
-              start: '2026-08-25T10:00:00.000Z',
-              end: '2026-08-25T10:30:00.000Z',
+              start: slots.httpBook.start,
+              end: slots.httpBook.end,
             },
           },
         ],
@@ -118,8 +124,8 @@ describe('Channel parity', () => {
         name: 'book_appointment',
         arguments: {
           doctorId: seed.drSara.id,
-          start: '2026-08-25T11:00:00.000Z',
-          end: '2026-08-25T11:30:00.000Z',
+          start: slots.voiceBook.start,
+          end: slots.voiceBook.end,
         },
       },
     });
@@ -140,8 +146,8 @@ describe('Channel parity', () => {
         name: 'book_appointment',
         arguments: {
           doctorId: seed.drSara.id,
-          start: '2026-08-25T12:00:00.000Z',
-          end: '2026-08-25T12:30:00.000Z',
+          start: slots.twilioBook.start,
+          end: slots.twilioBook.end,
         },
       },
     });
@@ -171,7 +177,7 @@ describe('Channel parity', () => {
 
     // Cancel the HTTP-booked row via voice — proves same SoT + ownership path.
     const httpAppt = appts.find(
-      (a) => a.slot.start.toISOString() === '2026-08-25T10:00:00.000Z',
+      (a) => a.slot.start.toISOString() === slots.httpBook.start,
     );
     expect(httpAppt).toBeTruthy();
 

@@ -28,6 +28,10 @@ import {
   type ClinicSeed,
   type ProductionTestHarness,
 } from '../../helpers/production-runtime-harness.js';
+import {
+  productionTestSlots,
+  type ProductionTestSlots,
+} from '../../helpers/future-appointment-slots.js';
 
 const TWILIO_WEBHOOK_URL = 'https://clinic.test/v1/twilio/voice';
 
@@ -62,6 +66,7 @@ describe('Production e2e', () => {
   let depsAvailable = false;
   let harness: ProductionTestHarness;
   let seed: ClinicSeed;
+  let slots: ProductionTestSlots;
 
   beforeAll(async () => {
     depsAvailable = await canReachProductionTestDependencies();
@@ -85,6 +90,7 @@ describe('Production e2e', () => {
     await harness.resetDb();
     seed = await harness.seedClinicData();
     harness.voice.clearQueue();
+    slots = productionTestSlots();
   });
 
   it('health: GET /health 200; GET /ready requires postgres+redis', async ({
@@ -145,8 +151,8 @@ describe('Production e2e', () => {
             name: 'get_available_appointments',
             arguments: {
               doctorId: seed.drSara.id,
-              from: '2026-08-25T08:00:00.000Z',
-              to: '2026-08-25T18:00:00.000Z',
+              from: slots.availabilityWindow.from,
+              to: slots.availabilityWindow.to,
             },
           },
         ],
@@ -191,8 +197,8 @@ describe('Production e2e', () => {
             name: 'book_appointment',
             arguments: {
               doctorId: seed.drSara.id,
-              start: '2026-08-25T10:00:00.000Z',
-              end: '2026-08-25T10:30:00.000Z',
+              start: slots.httpBook.start,
+              end: slots.httpBook.end,
             },
           },
         ],
@@ -291,8 +297,8 @@ describe('Production e2e', () => {
             name: 'book_appointment',
             arguments: {
               doctorId: seed.drSara.id,
-              start: '2026-08-25T11:00:00.000Z',
-              end: '2026-08-25T11:30:00.000Z',
+              start: slots.stolenAttempt.start,
+              end: slots.stolenAttempt.end,
             },
           },
         ],
@@ -344,8 +350,8 @@ describe('Production e2e', () => {
             arguments: {
               patientId: victim.patient.id,
               doctorId: seed.drSara.id,
-              start: '2026-08-25T12:00:00.000Z',
-              end: '2026-08-25T12:30:00.000Z',
+              start: slots.forgedBook.start,
+              end: slots.forgedBook.end,
             },
           },
         ],
@@ -385,8 +391,8 @@ describe('Production e2e', () => {
     const appt = await harness.runtime.useCases.bookAppointment.execute({
       patientId: enrollB.body.patientId,
       doctorId: seed.drSara.id,
-      start: '2026-08-25T13:00:00.000Z',
-      end: '2026-08-25T13:30:00.000Z',
+      start: slots.crossPatientBook.start,
+      end: slots.crossPatientBook.end,
     });
 
     const created = await request(harness.runtime.app)
@@ -436,8 +442,8 @@ describe('Production e2e', () => {
         arguments: {
           patientId: 'forged-voice-victim',
           doctorId: seed.drSara.id,
-          start: '2026-08-25T14:00:00.000Z',
-          end: '2026-08-25T14:30:00.000Z',
+          start: slots.voiceAuthBook.start,
+          end: slots.voiceAuthBook.end,
         },
       },
     });
@@ -599,8 +605,8 @@ describe('Production e2e', () => {
     const visit = await harness.runtime.useCases.bookAppointment.execute({
       patientId: patientB.patient.id,
       doctorId: seed.drSara.id,
-      start: '2026-08-25T09:00:00.000Z',
-      end: '2026-08-25T09:30:00.000Z',
+      start: slots.affinityVisit.start,
+      end: slots.affinityVisit.end,
     });
     await harness.runtime.useCases.completeAppointment.execute({
       appointmentId: visit.id,
@@ -641,8 +647,8 @@ describe('Production e2e', () => {
     const appt = await harness.runtime.useCases.bookAppointment.execute({
       patientId: patient.id,
       doctorId: seed.drSara.id,
-      start: '2026-08-26T10:00:00.000Z',
-      end: '2026-08-26T10:30:00.000Z',
+      start: slots.wmBook.start,
+      end: slots.wmBook.end,
     });
     expect(appt.id).toBeTruthy();
     expect(appt.status).toBe(AppointmentStatuses.Scheduled);
@@ -682,8 +688,8 @@ describe('Production e2e', () => {
       fullName: 'Cal',
     });
     const slot = TimeSlot.create(
-      new Date('2026-08-25T15:00:00.000Z'),
-      new Date('2026-08-25T15:30:00.000Z'),
+      slots.calendarConflict.startDate,
+      slots.calendarConflict.endDate,
     );
     await harness.calendar.reserveSlot({
       resourceId: seed.drSara.schedulingResourceId(),
@@ -695,8 +701,8 @@ describe('Production e2e', () => {
       harness.runtime.useCases.bookAppointment.execute({
         patientId: patient.id,
         doctorId: seed.drSara.id,
-        start: '2026-08-25T15:00:00.000Z',
-        end: '2026-08-25T15:30:00.000Z',
+        start: slots.calendarConflict.start,
+        end: slots.calendarConflict.end,
       }),
     ).rejects.toBeInstanceOf(TimeSlotUnavailableError);
 
@@ -720,8 +726,8 @@ describe('Production e2e', () => {
     const appt = await harness.runtime.useCases.bookAppointment.execute({
       patientId: patient.id,
       doctorId: seed.drSara.id,
-      start: '2026-08-26T11:00:00.000Z',
-      end: '2026-08-26T11:30:00.000Z',
+      start: slots.derivedBook.start,
+      end: slots.derivedBook.end,
     });
     expect(appt.status).toBe(AppointmentStatuses.Scheduled);
   });
@@ -739,8 +745,8 @@ describe('Production e2e', () => {
       .send({ phoneNumber: uniquePhone('err'), fullName: 'Err' });
 
     const slot = TimeSlot.create(
-      new Date('2026-08-25T16:00:00.000Z'),
-      new Date('2026-08-25T16:30:00.000Z'),
+      slots.providerErrorBook.startDate,
+      slots.providerErrorBook.endDate,
     );
     await harness.calendar.reserveSlot({
       resourceId: seed.drSara.schedulingResourceId(),
@@ -759,8 +765,8 @@ describe('Production e2e', () => {
             name: 'book_appointment',
             arguments: {
               doctorId: seed.drSara.id,
-              start: '2026-08-25T16:00:00.000Z',
-              end: '2026-08-25T16:30:00.000Z',
+              start: slots.providerErrorBook.start,
+              end: slots.providerErrorBook.end,
             },
           },
         ],
