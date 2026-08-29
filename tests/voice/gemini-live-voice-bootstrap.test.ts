@@ -15,4 +15,13 @@ describe('createGeminiLiveVoiceProviderFromEnv', () => {
     expect(provider).toBeDefined();
     expect(typeof provider.startSession).toBe('function');
   });
+
+  it('remaps retired Live model ids', async () => {
+    const { loadGeminiLiveVoiceConfig, DEFAULT_GEMINI_LIVE_MODEL } =
+      await import('../../src/config/gemini-live.js');
+    const config = loadGeminiLiveVoiceConfig({
+      GEMINI_LIVE_MODEL: 'gemini-2.5-flash-preview-native-audio-dialog',
+    });
+    expect(config.model).toBe(DEFAULT_GEMINI_LIVE_MODEL);
+  });
 });

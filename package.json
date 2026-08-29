@@ -7,6 +7,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "start": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
+    "dev:trace": "LOG_TRACE=true tsx watch src/server.ts",
     "services:up": "docker compose up -d postgres redis",
     "services:up:all": "docker compose up -d postgres redis qdrant neo4j",
     "services:down": "docker compose down",
@@ -32,7 +34,8 @@
     "eval:live": "vitest run --config vitest.live-eval.config.ts",
     "check:deps": "depcruise src --config .dependency-cruiser.cjs",
     "production:check": "bash scripts/production-check.sh",
-    "production:smoke": "bash scripts/production-smoke.sh"
+    "production:smoke": "bash scripts/production-smoke.sh",
+    "local:tunnel": "bash scripts/local-tunnel.sh"
   },
   "engines": {
     "node": ">=20"
@@ -42,6 +45,7 @@
     "@types/node": "^22.20.1",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
+    "@types/ws": "^8.18.1",
     "dependency-cruiser": "^16.10.0",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
@@ -61,6 +65,7 @@
     "neo4j-driver": "^5.28.3",
     "opik": "^1.11.14",
     "pg": "^8.23.0",
+    "ws": "^8.21.3",
     "zod": "^4.4.3"
   }
 }

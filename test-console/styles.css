@@ -216,6 +216,128 @@ button:disabled {
   margin-top: 0.15rem;
 }
 
+.voice-panel {
+  border: 1px solid var(--accent-dim);
+  background: linear-gradient(180deg, #1a2840 0%, var(--surface) 100%);
+}
+
+.voice-panel.highlight {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.voice-lead {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+}
+
+.voice-steps {
+  margin: 0.5rem 0 0.75rem;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.voice-steps li {
+  margin-bottom: 0.35rem;
+}
+
+.url-block {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  word-break: break-all;
+  padding: 0.45rem 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.voice-phrases {
+  font-size: 0.78rem;
+  margin: 0.5rem 0;
+}
+
+.voice-phrases ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.voice-docs {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 0.75rem 0 0;
+}
+
+.voice-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--ok);
+  border: 1px solid var(--ok);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  vertical-align: middle;
+}
+
+.voice-controls {
+  margin: 0.5rem 0;
+}
+
+.voice-status {
+  font-size: 0.8rem;
+  margin: 0.5rem 0;
+  color: var(--muted);
+}
+
+.voice-status.status-live {
+  color: var(--ok);
+}
+
+.voice-status.status-error {
+  color: var(--err);
+}
+
+.voice-thread {
+  max-height: 160px;
+  overflow-y: auto;
+  font-size: 0.78rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.voice-line {
+  margin-bottom: 0.35rem;
+  word-break: break-word;
+}
+
+.voice-line.role-user {
+  color: var(--accent);
+}
+
+.voice-line.role-assistant {
+  color: var(--text);
+}
+
+.voice-line.role-tool {
+  color: var(--warn);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.voice-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1rem 0 0.75rem;
+}
+
+.voice-subhead {
+  font-size: 0.85rem;
+  margin: 0 0 0.35rem;
+}
+
 .chat-thread {
   display: flex;
   flex-direction: column;

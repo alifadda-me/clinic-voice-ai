@@ -60,6 +60,11 @@ export class GetAvailableAppointments {
     const now = this.clock.now();
     const effectiveStart = rangeStart < now ? now : rangeStart;
 
+    // LLM often passes stale/past windows — avoid invalid calendar queries (start >= end).
+    if (rangeEnd <= now || effectiveStart >= rangeEnd) {
+      return [];
+    }
+
     const slots = await this.calendar.findAvailableSlots({
       resourceId: doctor.schedulingResourceId(),
       range: { start: effectiveStart, end: rangeEnd },

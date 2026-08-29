@@ -9,7 +9,14 @@
  * Never uses deterministic embeddings. Missing embedding config fails startup.
  */
 
+import { loadEnvFile } from './bin/load-env-file.js';
 import { createProductionRuntime } from './runtime/production-runtime.js';
+import { loadTraceLoggingConfig } from './config/trace-logging.js';
+import { loadGeminiLiveVoiceConfig } from './config/gemini-live.js';
+import { attachBrowserVoiceWebSocket } from './interfaces/http/attach-browser-voice-websocket.js';
+import { BROWSER_VOICE_WS_PATH } from './interfaces/voice/browser-voice-protocol.js';
+
+loadEnvFile();
 
 async function main(): Promise<void> {
   const runtime = await createProductionRuntime({
@@ -17,7 +24,16 @@ async function main(): Promise<void> {
   });
 
   const port = runtime.config.port;
+  let browserVoiceWs: { close: () => void } | undefined;
+
   const server = runtime.app.listen(port, () => {
+    const trace = loadTraceLoggingConfig();
+    if (runtime.voiceStack) {
+      browserVoiceWs = attachBrowserVoiceWebSocket(server, {
+        voiceClinicSession: runtime.voiceStack.voiceSession,
+        observability: runtime.observability,
+      });
+    }
     // eslint-disable-next-line no-console
     console.log(
       JSON.stringify({
@@ -28,6 +44,9 @@ async function main(): Promise<void> {
         embeddingDimensions: runtime.config.embeddings.dimensions,
         enableTwilio: runtime.config.enableTwilio,
         enableVoice: runtime.config.enableVoice,
+        geminiLiveModel: loadGeminiLiveVoiceConfig(process.env).model,
+        browserVoicePath: runtime.voiceStack ? BROWSER_VOICE_WS_PATH : null,
+        trace_logging: trace,
       }),
     );
   });
@@ -35,6 +54,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     // eslint-disable-next-line no-console
     console.log(JSON.stringify({ event: 'shutdown', signal }));
+    browserVoiceWs?.close();
     server.close();
     await runtime.close();
     process.exit(0);

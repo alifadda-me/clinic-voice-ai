@@ -8,6 +8,7 @@ import type { LinkPrincipalToPatient } from '../../application/identity/link-pri
 import { createChatRouter } from './chat-router.js';
 import { createHealthRouter, type HealthProbes } from './health-router.js';
 import { mountTestConsole } from './mount-test-console.js';
+import { createRequestLoggingMiddleware } from './request-logging-middleware.js';
 import { errorMiddleware } from './map-error.js';
 
 /**
@@ -43,6 +44,7 @@ export function createProductionHttpApp(deps: {
   }
 
   app.use(express.json({ limit: '64kb' }));
+  app.use(createRequestLoggingMiddleware());
   app.use(
     '/v1',
     createChatRouter({

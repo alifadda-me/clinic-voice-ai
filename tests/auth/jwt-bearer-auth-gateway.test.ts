@@ -88,6 +88,17 @@ describe('JwtBearerAuthGateway', () => {
     ).rejects.toBeInstanceOf(InvalidAuthCredentialsError);
   });
 
+  it('accepts issuer claim with trailing slash when config omits it', async () => {
+    const token = await fixture.signAccessToken({
+      subject: 'sub-trailing-iss',
+      issuer: `${TEST_AUTH_ISSUER}/`,
+    });
+    const principal = await fixture.gateway.resolve({
+      authorizationHeader: `Bearer ${token}`,
+    });
+    expect(principal).toEqual({ subjectId: 'sub-trailing-iss' });
+  });
+
   it('fromConfig builds remote JWKS gateway without throwing', () => {
     const gateway = JwtBearerAuthGateway.fromConfig({
       issuer: TEST_AUTH_ISSUER,

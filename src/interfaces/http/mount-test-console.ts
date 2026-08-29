@@ -12,7 +12,8 @@ export function mountTestConsole(app: Express): void {
     '/test-console',
     express.static(TEST_CONSOLE_DIR, {
       index: 'index.html',
-      maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
+      maxAge: 0,
+      etag: true,
     }),
   );
 }

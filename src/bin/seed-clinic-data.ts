@@ -14,6 +14,7 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadEnvFile } from './load-env-file.js';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { SeedDemoClinic } from '../application/clinic/seed-demo-clinic.js';
 import {
@@ -69,6 +70,7 @@ async function runMigrations(
 }
 
 async function main(): Promise<void> {
+  loadEnvFile();
   const databaseUrl = process.env.DATABASE_URL?.trim();
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is required');

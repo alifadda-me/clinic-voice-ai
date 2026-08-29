@@ -1,3 +1,7 @@
+import { config as loadDotenv } from 'dotenv';
+
+loadDotenv();
+
 import { defineConfig } from 'drizzle-kit';
 
 export default defineConfig({

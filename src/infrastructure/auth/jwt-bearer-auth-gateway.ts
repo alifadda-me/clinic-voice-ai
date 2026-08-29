@@ -67,7 +67,7 @@ export class JwtBearerAuthGateway implements AuthGateway {
 
     try {
       const { payload } = await jwtVerify(token, this.getKey, {
-        issuer: this.issuer,
+        issuer: issuerClaimValues(this.issuer),
         audience: this.audience,
       });
 
@@ -92,6 +92,15 @@ export class JwtBearerAuthGateway implements AuthGateway {
 function extractBearerToken(authorizationHeader: string): string | null {
   const match = /^Bearer\s+(\S+)/i.exec(authorizationHeader);
   return match?.[1] ?? null;
+}
+
+/** Auth0 and some IdPs emit iss with a trailing slash; env may omit it. */
+function issuerClaimValues(configuredIssuer: string): string[] {
+  const trimmed = configuredIssuer.trim().replace(/\/$/, '');
+  if (!trimmed) {
+    return [configuredIssuer];
+  }
+  return [trimmed, `${trimmed}/`];
 }
 
 export type { JWTVerifyGetKey };

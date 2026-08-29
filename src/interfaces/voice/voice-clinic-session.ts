@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { AuthCredentials, AuthGateway } from '../../ports/platform/auth.js';
 import { InvalidAuthCredentialsError } from '../../ports/platform/auth.js';
-import type { LiveVoiceProvider, LiveVoiceSession } from '../../ports/platform/live-voice-provider.js';
+import type {
+  LiveVoiceProvider,
+  LiveVoiceSession,
+  VoiceAudioChunk,
+} from '../../ports/platform/live-voice-provider.js';
 import { LiveVoiceUnavailableError } from '../../ports/platform/live-voice-provider.js';
 import type { WorkingMemory } from '../../ports/platform/working-memory.js';
 import type { ObservabilityPort } from '../../ports/platform/observability.js';
@@ -13,6 +17,15 @@ import {
 import type { ToolRegistry } from '../../agent/tools/types.js';
 import { CLINIC_AGENT_SYSTEM_INSTRUCTION } from '../../agent/prompts.js';
 import { createSafeObservability } from '../../agent/safe-observability.js';
+import { isVoiceReasoningTranscript } from './voice-transcript-filter.js';
+
+export type VoiceClinicSessionListeners = {
+  onAudio?: (chunk: VoiceAudioChunk) => void;
+  onTranscript?: (text: string, role: 'user' | 'assistant') => void;
+  onToolInvoked?: (name: string, ok: boolean) => void;
+  onError?: (error: Error) => void;
+  onInterrupt?: () => void;
+};
 
 export type StartVoiceClinicSessionInput = {
   /** Conversation / WorkingMemory correlation — not authentication. */
@@ -22,6 +35,8 @@ export type StartVoiceClinicSessionInput = {
   requestCorrelationId?: string | undefined;
   /** Defaults to voice; Twilio PSTN uses twilio_voice. */
   channel?: 'voice' | 'twilio_voice' | undefined;
+  /** Optional outbound events (browser test bridge, diagnostics). */
+  sessionListeners?: VoiceClinicSessionListeners | undefined;
 };
 
 export type VoiceClinicSessionResult = {
@@ -102,8 +117,18 @@ export class VoiceClinicSession {
           parametersSchema: d.parameters,
         })),
         handlers: {
+          onAudio: (chunk) => {
+            input.sessionListeners?.onAudio?.(chunk);
+          },
           onTranscript: (text, role) => {
+            if (role === 'assistant' && isVoiceReasoningTranscript(text)) {
+              return;
+            }
             void this.appendTranscript(input.conversationId, text, role);
+            input.sessionListeners?.onTranscript?.(text, role);
+          },
+          onInterrupt: () => {
+            input.sessionListeners?.onInterrupt?.();
           },
           onToolCall: async (call) => {
             const toolSpan = sessionSpan.startChild('voice.tool.dispatch', {
@@ -127,6 +152,7 @@ export class VoiceClinicSession {
                 toolSpan.setAttribute('error_code', result.code);
               }
               toolSpan.end();
+              input.sessionListeners?.onToolInvoked?.(call.name, result.ok);
               return JSON.stringify(result);
             } catch (error) {
               toolSpan.setAttribute('tool_ok', false);
@@ -136,6 +162,7 @@ export class VoiceClinicSession {
                 error instanceof Error ? error.name : 'TOOL_ERROR',
               );
               toolSpan.end();
+              input.sessionListeners?.onToolInvoked?.(call.name, false);
               return JSON.stringify({
                 ok: false,
                 code: 'TOOL_ERROR',
@@ -144,6 +171,7 @@ export class VoiceClinicSession {
             }
           },
           onError: (error) => {
+            input.sessionListeners?.onError?.(error);
             sessionSpan.setAttribute(
               'error_code',
               error instanceof LiveVoiceUnavailableError
@@ -219,5 +247,11 @@ function buildVoiceSystemInstruction(execution: TrustedExecutionContext): string
     ? 'Auth status: an authenticated clinic patient is linked for this voice session. Do not ask them to authenticate again unless a tool reports PATIENT_NOT_IDENTIFIED.'
     : 'Auth status: anonymous (no authenticated clinic patient). Doctor/specialty search and availability are allowed. Profile, preferences, booking, cancel, and reschedule require authentication.';
 
-  return `${CLINIC_AGENT_SYSTEM_INSTRUCTION}\n\n${status}`;
+  const voiceRules = `Voice channel rules:
+- Speak ONLY in Egyptian Arabic to the user — short, natural sentences.
+- Never speak English planning, markdown, tool names, or internal reasoning aloud.
+- For search_doctors and search_specialties always pass {"query": "..."} (never "description").
+- After tools succeed, summarize results in Arabic; do not read JSON.`;
+
+  return `${CLINIC_AGENT_SYSTEM_INSTRUCTION}\n\n${status}\n\n${voiceRules}`;
 }

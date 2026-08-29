@@ -42,7 +42,23 @@ export class GeminiLiveVoiceProvider implements LiveVoiceProvider {
                 return;
               case 'toolCall':
                 if (message.toolCall && params.handlers.onToolCall) {
-                  await params.handlers.onToolCall(message.toolCall);
+                  const resultJson = await params.handlers.onToolCall(
+                    message.toolCall,
+                  );
+                  let responseBody: Record<string, unknown>;
+                  try {
+                    responseBody = JSON.parse(resultJson) as Record<
+                      string,
+                      unknown
+                    >;
+                  } catch {
+                    responseBody = { output: resultJson };
+                  }
+                  await remote.sendToolResponse(
+                    message.toolCall.id,
+                    message.toolCall.name,
+                    { output: responseBody },
+                  );
                 }
                 return;
               case 'error':
@@ -52,6 +68,9 @@ export class GeminiLiveVoiceProvider implements LiveVoiceProvider {
                 return;
               case 'close':
                 params.handlers.onClose?.();
+                return;
+              case 'interrupt':
+                params.handlers.onInterrupt?.();
                 return;
             }
           } catch (error) {

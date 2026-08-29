@@ -11,6 +11,7 @@
  * unless REBUILD_REQUIRE_GRAPH=true.
  */
 
+import { loadEnvFile } from './load-env-file.js';
 import { createProductionRuntime } from '../runtime/production-runtime.js';
 import type { ChatModel } from '../ports/platform/chat-model.js';
 
@@ -21,6 +22,7 @@ const unusedChatModel: ChatModel = {
 };
 
 async function main(): Promise<void> {
+  loadEnvFile();
   const target = process.argv[2] ?? 'all';
   if (!['search', 'graph', 'all'].includes(target)) {
     throw new Error('Usage: rebuild-derived-stores.ts <search|graph|all>');

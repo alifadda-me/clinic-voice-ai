@@ -99,6 +99,7 @@ describe('GeminiLiveVoiceProvider with fake transport', () => {
         return {
           async sendAudio() {},
           async sendText() {},
+          async sendToolResponse() {},
           async close() {
             await params.onMessage({ kind: 'close' });
           },

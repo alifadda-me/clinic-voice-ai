@@ -75,6 +75,55 @@
           </div>
         </div>
 
+        <div class="panel voice-panel" id="voicePanel">
+          <h2>Browser voice <span class="voice-badge">free · no Twilio</span></h2>
+          <p class="voice-lead">
+            Mic → Gemini Live (<code>gemini-3.1-flash-live-preview</code>) → same clinic tools as phone. Requires
+            <code>ENABLE_VOICE=true</code> + <code>GEMINI_API_KEY</code> on the server.
+            Use headphones if you hear the assistant echoing mid-sentence.
+          </p>
+          <div class="field">
+            <label>WebSocket</label>
+            <code id="browserVoiceWsUrl" class="url-block">—</code>
+          </div>
+          <div class="row voice-controls">
+            <button type="button" class="primary" id="btnVoiceStart">
+              Start talking
+            </button>
+            <button type="button" id="btnVoiceStop" disabled>Stop</button>
+          </div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="voiceWithJwt" checked />
+            Send JWT on voice start (when pasted)
+          </label>
+          <p id="voiceStatus" class="voice-status">Idle</p>
+          <div id="voiceThread" class="voice-thread">
+            <p class="empty">Transcripts appear here while you speak.</p>
+          </div>
+          <details class="voice-phrases">
+            <summary>Phrases to say (Egyptian Arabic)</summary>
+            <ul>
+              <li><code>عايز دكتور جلدية</code> — doctor search</li>
+              <li><code>مواعيد بكرة الصبح إيه؟</code> — availability</li>
+              <li><code>احجز لي المعاد ده</code> — book (needs JWT + enroll)</li>
+              <li><code>وريني حجوزاتي</code> — profile</li>
+            </ul>
+          </details>
+          <hr class="voice-divider" />
+          <h3 class="voice-subhead">Phone (Twilio)</h3>
+          <p class="voice-lead">
+            Trial accounts block <code>&lt;Stream&gt;</code> — upgrade Twilio for PSTN.
+          </p>
+          <div class="field">
+            <label>Twilio voice webhook</label>
+            <code id="voiceWebhookUrl" class="url-block">—</code>
+          </div>
+          <div class="field">
+            <label>Media stream</label>
+            <code id="voiceMediaWsUrl" class="url-block">—</code>
+          </div>
+        </div>
+
         <div class="panel level-nav">
           <h2>Scenario levels</h2>
           <div id="levelNav"></div>
@@ -134,6 +183,6 @@
       </aside>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=7"></script>
   </body>
 </html>

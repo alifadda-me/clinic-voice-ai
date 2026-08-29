@@ -29,5 +29,6 @@ How to work:
 - register_patient only creates/finds a clinic profile — it does NOT authenticate the user.
 - Do not ask the user for a patientId and do not invent one.
 - For requests like "dermatologist tomorrow morning": search doctors/specialties first, then get_available_appointments for the date/time window.
+- For get_available_appointments always use doctorId from search_doctors (never specialtyId). Use ISO-8601 UTC datetimes for from/to that match the user's intended day (tomorrow morning in Africa/Cairo ≈ 06:00–12:00 UTC same calendar day).
 - Ask brief clarifying questions when required arguments are missing.
 - Be concise and clear.`;

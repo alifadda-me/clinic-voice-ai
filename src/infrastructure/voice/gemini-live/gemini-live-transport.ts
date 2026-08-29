@@ -5,7 +5,7 @@
 
 export type GeminiLiveTransportMessage = {
   /** Opaque provider payload; adapter maps to handlers. */
-  kind: 'audio' | 'transcript' | 'toolCall' | 'error' | 'close';
+  kind: 'audio' | 'transcript' | 'toolCall' | 'error' | 'close' | 'interrupt';
   audioBase64?: string;
   mimeType?: string;
   transcript?: string;
@@ -21,6 +21,11 @@ export type GeminiLiveTransportMessage = {
 export type GeminiLiveTransportSession = {
   sendAudio(dataBase64: string, mimeType: string): Promise<void>;
   sendText(text: string): Promise<void>;
+  sendToolResponse(
+    id: string,
+    name: string,
+    response: Record<string, unknown>,
+  ): Promise<void>;
   close(): Promise<void>;
 };
 

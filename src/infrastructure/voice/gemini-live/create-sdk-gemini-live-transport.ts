@@ -1,10 +1,17 @@
-import { GoogleGenAI, Modality, type Session } from '@google/genai';
+import { GoogleGenAI, Modality, ThinkingLevel, type Session } from '@google/genai';
 import type { GeminiLiveVoiceConfig } from '../../../config/gemini-live.js';
 import { LiveVoiceUnavailableError } from '../../../ports/platform/live-voice-provider.js';
-import type {
-  GeminiLiveTransport,
-  GeminiLiveTransportMessage,
-} from './gemini-live-transport.js';
+import type { GeminiLiveTransport } from './gemini-live-transport.js';
+import { dispatchGeminiLiveServerMessage } from './dispatch-gemini-live-server-message.js';
+
+const SETUP_TIMEOUT_MS = 20_000;
+
+function thinkingConfigForLiveModel(model: string) {
+  if (model.startsWith('gemini-3.')) {
+    return { thinkingLevel: ThinkingLevel.MINIMAL };
+  }
+  return { includeThoughts: false };
+}
 
 /**
  * Real @google/genai Live transport. Only imported from this file (depcruise).
@@ -21,12 +28,33 @@ export function createSdkGeminiLiveTransport(
   return {
     async connect(params) {
       let session: Session | undefined;
+      let setupComplete = false;
+      let setupFailed: Error | undefined;
+
+      let resolveSetup!: () => void;
+      let rejectSetup!: (error: Error) => void;
+      const setupGate = new Promise<void>((resolve, reject) => {
+        resolveSetup = resolve;
+        rejectSetup = reject;
+      });
+
+      const setupTimer = setTimeout(() => {
+        if (!setupComplete) {
+          setupFailed = new LiveVoiceUnavailableError(
+            'Gemini Live setup timed out',
+          );
+          rejectSetup(setupFailed);
+        }
+      }, SETUP_TIMEOUT_MS);
 
       try {
         session = await ai.live.connect({
           model: config.model,
           config: {
             responseModalities: [Modality.AUDIO],
+            inputAudioTranscription: {},
+            outputAudioTranscription: {},
+            thinkingConfig: thinkingConfigForLiveModel(config.model),
             systemInstruction: params.systemInstruction,
             ...(params.tools.length > 0
               ? {
@@ -44,28 +72,52 @@ export function createSdkGeminiLiveTransport(
           },
           callbacks: {
             onmessage: (message) => {
-              void mapServerMessage(message, params.onMessage);
+              if (message.setupComplete && !setupComplete) {
+                setupComplete = true;
+                clearTimeout(setupTimer);
+                resolveSetup();
+              }
+              void dispatchGeminiLiveServerMessage(message, params.onMessage);
             },
             onerror: (e) => {
-              void params.onMessage({
-                kind: 'error',
-                error: new LiveVoiceUnavailableError(
-                  e instanceof Error ? e.message : 'Gemini Live error',
-                ),
-              });
+              const error = new LiveVoiceUnavailableError(
+                e instanceof Error ? e.message : 'Gemini Live error',
+              );
+              if (!setupComplete) {
+                setupFailed = error;
+                clearTimeout(setupTimer);
+                rejectSetup(error);
+              }
+              void params.onMessage({ kind: 'error', error });
             },
-            onclose: () => {
+            onclose: (event) => {
+              clearTimeout(setupTimer);
+              if (!setupComplete) {
+                const reason =
+                  typeof event === 'object' &&
+                  event &&
+                  'reason' in event &&
+                  typeof event.reason === 'string' &&
+                  event.reason.trim()
+                    ? event.reason.trim()
+                    : 'Gemini Live closed before setup completed';
+                setupFailed = new LiveVoiceUnavailableError(reason);
+                rejectSetup(setupFailed);
+              }
               void params.onMessage({ kind: 'close' });
             },
           },
         });
       } catch (error) {
+        clearTimeout(setupTimer);
         throw new LiveVoiceUnavailableError(
           error instanceof Error
             ? error.message
             : 'Failed to connect Gemini Live',
         );
       }
+
+      await setupGate;
 
       const active = session;
       return {
@@ -77,87 +129,19 @@ export function createSdkGeminiLiveTransport(
         async sendText(text) {
           active.sendRealtimeInput({ text });
         },
+        async sendToolResponse(id, name, response) {
+          active.sendToolResponse({
+            functionResponses: {
+              id,
+              name,
+              response,
+            },
+          });
+        },
         async close() {
           active.close();
         },
       };
     },
   };
-}
-
-async function mapServerMessage(
-  message: unknown,
-  onMessage: (msg: GeminiLiveTransportMessage) => void | Promise<void>,
-): Promise<void> {
-  const root = message as {
-    serverContent?: {
-      modelTurn?: {
-        parts?: Array<{
-          text?: string;
-          inlineData?: { data?: string; mimeType?: string };
-        }>;
-      };
-      inputTranscription?: { text?: string };
-      outputTranscription?: { text?: string };
-    };
-    toolCall?: {
-      functionCalls?: Array<{
-        id?: string;
-        name?: string;
-        args?: Record<string, unknown>;
-      }>;
-    };
-  };
-
-  const inputTx = root.serverContent?.inputTranscription?.text;
-  if (inputTx) {
-    await onMessage({
-      kind: 'transcript',
-      transcript: inputTx,
-      transcriptRole: 'user',
-    });
-  }
-
-  const outputTx = root.serverContent?.outputTranscription?.text;
-  if (outputTx) {
-    await onMessage({
-      kind: 'transcript',
-      transcript: outputTx,
-      transcriptRole: 'assistant',
-    });
-  }
-
-  const parts = root.serverContent?.modelTurn?.parts ?? [];
-  for (const part of parts) {
-    if (part.text) {
-      await onMessage({
-        kind: 'transcript',
-        transcript: part.text,
-        transcriptRole: 'assistant',
-      });
-    }
-    if (part.inlineData?.data) {
-      await onMessage({
-        kind: 'audio',
-        audioBase64: part.inlineData.data,
-        mimeType: part.inlineData.mimeType ?? 'audio/pcm',
-      });
-    }
-  }
-
-  const calls = root.toolCall?.functionCalls ?? [];
-  for (const call of calls) {
-    if (!call.name) continue;
-    await onMessage({
-      kind: 'toolCall',
-      toolCall: {
-        id: call.id?.trim() || `voice_tool_${call.name}`,
-        name: call.name,
-        arguments:
-          call.args && typeof call.args === 'object' && !Array.isArray(call.args)
-            ? call.args
-            : {},
-      },
-    });
-  }
 }

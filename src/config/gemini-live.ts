@@ -1,12 +1,26 @@
 import { z } from 'zod';
 
+/** Recommended Live native-audio model (Mar 2026). */
+export const DEFAULT_GEMINI_LIVE_MODEL = 'gemini-3.1-flash-live-preview';
+
 const geminiLiveEnvSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_LIVE_MODEL: z
-    .string()
-    .min(1)
-    .default('gemini-2.5-flash-preview-native-audio-dialog'),
+  GEMINI_LIVE_MODEL: z.string().min(1).default(DEFAULT_GEMINI_LIVE_MODEL),
 });
+
+/** Retired Live model ids → current supported id. */
+const DEPRECATED_LIVE_MODEL_ALIASES: Record<string, string> = {
+  'gemini-2.5-flash-preview-native-audio-dialog':
+    DEFAULT_GEMINI_LIVE_MODEL,
+  'gemini-2.5-flash-native-audio-preview-12-2025':
+    DEFAULT_GEMINI_LIVE_MODEL,
+  'gemini-live-2.5-flash-preview': DEFAULT_GEMINI_LIVE_MODEL,
+  'gemini-2.0-flash-live-001': DEFAULT_GEMINI_LIVE_MODEL,
+};
+
+function resolveLiveModel(model: string): string {
+  return DEPRECATED_LIVE_MODEL_ALIASES[model] ?? model;
+}
 
 export type GeminiLiveVoiceConfig = {
   apiKey?: string | undefined;
@@ -27,7 +41,7 @@ export function loadGeminiLiveVoiceConfig(
   const apiKey = parsed.GEMINI_API_KEY?.trim() || undefined;
   return {
     ...(apiKey ? { apiKey } : {}),
-    model: parsed.GEMINI_LIVE_MODEL,
+    model: resolveLiveModel(parsed.GEMINI_LIVE_MODEL),
     enabled: Boolean(apiKey),
   };
 }

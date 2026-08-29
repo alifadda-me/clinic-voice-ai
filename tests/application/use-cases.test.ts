@@ -193,6 +193,15 @@ describe('Application use cases (in-memory)', () => {
       expect(slots.length).toBeGreaterThan(0);
     });
 
+    it('returns empty slots when the requested window is entirely in the past', async () => {
+      const slots = await world.useCases.getAvailableAppointments.execute({
+        doctorId: seed.drSara.id,
+        from: '2020-01-01T09:00:00.000Z',
+        to: '2020-01-01T12:00:00.000Z',
+      });
+      expect(slots).toEqual([]);
+    });
+
     it('books an appointment when slot is free', async () => {
       const patient = await registerPatient();
       const appt = await world.useCases.bookAppointment.execute({

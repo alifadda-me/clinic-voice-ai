@@ -23,6 +23,8 @@ export type VoiceSessionHandlers = {
   onToolCall?: (call: VoiceToolCall) => Promise<string>;
   onError?: (error: Error) => void;
   onClose?: () => void;
+  /** Model turn cut short (user barged in). Flush stale playback on the client. */
+  onInterrupt?: () => void;
 };
 
 export type StartVoiceSessionParams = {

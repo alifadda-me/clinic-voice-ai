@@ -2,6 +2,11 @@
  * Manual production test console — mirrors docs/TEST_SCENARIOS.md
  */
 
+import {
+  createBrowserVoiceClient,
+  resolveBrowserVoiceWsUrl,
+} from './voice-client.js';
+
 const STORAGE_KEY = 'clinic-voice-ai-test-console';
 
 const DEFAULT_BASE =
@@ -15,6 +20,7 @@ const LEVELS = [
   { id: 4, label: 'Level 4 — Booking' },
   { id: 5, label: 'Level 5 — Cancel / reschedule' },
   { id: 6, label: 'Level 6 — Security' },
+  { id: 9, label: 'Level 9 — Voice & phone' },
 ];
 
 const SCENARIOS = [
@@ -239,12 +245,27 @@ const SCENARIOS = [
     withJwt: false,
   },
   {
-    level: 1,
-    id: 'S7.2',
-    title: 'Semantic search (Arabic)',
-    kind: 'chat',
-    message: 'محتاج دكتور يعالج حساسية الجلد',
-    withJwt: false,
+    level: 9,
+    id: 'S9.1',
+    title: 'Voice stack smoke',
+    hint: 'Server must start with ENABLE_VOICE + GEMINI_API_KEY',
+    kind: 'request',
+    method: 'GET',
+    path: '/health',
+  },
+  {
+    level: 9,
+    id: 'S9.2',
+    title: 'Scroll to browser voice',
+    hint: 'Mic → Gemini Live (no Twilio)',
+    kind: 'showVoicePanel',
+  },
+  {
+    level: 9,
+    id: 'S9.3',
+    title: 'Start browser voice',
+    hint: 'Requires ENABLE_VOICE + GEMINI_API_KEY',
+    kind: 'startBrowserVoice',
   },
 ];
 
@@ -273,6 +294,21 @@ const el = {
   requestLog: document.getElementById('requestLog'),
   jwtPreview: document.getElementById('jwtPreview'),
   connStatus: document.getElementById('connStatus'),
+  voiceWebhookUrl: document.getElementById('voiceWebhookUrl'),
+  voiceMediaWsUrl: document.getElementById('voiceMediaWsUrl'),
+  voicePanel: document.getElementById('voicePanel'),
+  browserVoiceWsUrl: document.getElementById('browserVoiceWsUrl'),
+  btnVoiceStart: /** @type {HTMLButtonElement} */ (
+    document.getElementById('btnVoiceStart')
+  ),
+  btnVoiceStop: /** @type {HTMLButtonElement} */ (
+    document.getElementById('btnVoiceStop')
+  ),
+  voiceWithJwt: /** @type {HTMLInputElement} */ (
+    document.getElementById('voiceWithJwt')
+  ),
+  voiceStatus: document.getElementById('voiceStatus'),
+  voiceThread: document.getElementById('voiceThread'),
 };
 
 let activeLevel = 0;
@@ -321,6 +357,96 @@ function resolveBase() {
   return el.baseUrl.value.trim().replace(/\/$/, '');
 }
 
+function updateVoicePanel() {
+  const base = resolveBase();
+  if (!base || !el.voiceWebhookUrl || !el.voiceMediaWsUrl) return;
+  const httpBase = base.replace(/^wss:/i, 'https:').replace(/^ws:/i, 'http:');
+  el.voiceWebhookUrl.textContent = `${httpBase}/v1/twilio/voice`;
+  const host = httpBase.replace(/^https?:\/\//i, '');
+  el.voiceMediaWsUrl.textContent = `wss://${host}/v1/twilio/media`;
+  if (el.browserVoiceWsUrl) {
+    el.browserVoiceWsUrl.textContent = resolveBrowserVoiceWsUrl(httpBase);
+  }
+}
+
+function showVoicePanel() {
+  el.voicePanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  el.voicePanel?.classList.add('highlight');
+  window.setTimeout(() => el.voicePanel?.classList.remove('highlight'), 1800);
+}
+
+/** @type {ReturnType<typeof createBrowserVoiceClient> | null} */
+let browserVoice = null;
+
+function ensureBrowserVoiceClient() {
+  if (browserVoice) return browserVoice;
+  browserVoice = createBrowserVoiceClient({
+    resolveWsUrl: () => resolveBrowserVoiceWsUrl(resolveBase()),
+    getConversationId: () => el.conversationId.value.trim(),
+    getJwt: () => el.jwt.value,
+    useJwt: () => el.voiceWithJwt.checked,
+    onState: (state, detail) => {
+      const live = state === 'live';
+      el.btnVoiceStart.disabled = state === 'connecting' || live;
+      el.btnVoiceStop.disabled = state === 'idle' || state === 'connecting';
+      const labels = {
+        idle: 'Idle',
+        connecting: 'Connecting… allow microphone',
+        live: detail ? `Live · ${detail}` : 'Live — speak now',
+        error: detail ? `Error: ${detail}` : 'Error',
+      };
+      el.voiceStatus.textContent = labels[state] ?? state;
+      el.voiceStatus.className = `voice-status status-${state}`;
+    },
+    onTranscript: (role, text) => {
+      pushVoiceTranscript(role, text);
+    },
+    onTool: (name, ok) => {
+      pushVoiceTranscript('tool', `${name} → ${ok ? 'ok' : 'failed'}`);
+    },
+    onLog: (entry) => {
+      appendLog({
+        method: 'WS',
+        path: '/v1/voice/browser',
+        status: 0,
+        ms: 0,
+        requestBody: entry,
+        body: entry,
+      });
+    },
+  });
+  return browserVoice;
+}
+
+function pushVoiceTranscript(role, text) {
+  const empty = el.voiceThread.querySelector('.empty');
+  if (empty) empty.remove();
+  const line = document.createElement('div');
+  line.className = `voice-line role-${role}`;
+  const label =
+    role === 'user' ? 'You' : role === 'assistant' ? 'Assistant' : 'Tool';
+  line.textContent = `${label}: ${text}`;
+  el.voiceThread.appendChild(line);
+  el.voiceThread.scrollTop = el.voiceThread.scrollHeight;
+  if (role === 'user' || role === 'assistant') {
+    pushChat(role === 'user' ? 'user' : 'assistant', `[voice] ${text}`);
+  }
+}
+
+async function startBrowserVoice() {
+  if (!el.conversationId.value.trim()) {
+    await newConversation();
+  }
+  el.voiceThread.innerHTML =
+    '<p class="empty">Listening… transcripts appear here.</p>';
+  showVoicePanel();
+  await ensureBrowserVoiceClient().start();
+}
+
+async function stopBrowserVoice() {
+  await browserVoice?.stop();
+}
+
 function freshTestPhone() {
   const suffix = String(Date.now()).slice(-8);
   return `+2010${suffix}`;
@@ -356,12 +482,19 @@ function updateJwtPreview() {
     typeof payload.exp === 'number'
       ? new Date(payload.exp * 1000).toISOString()
       : '—';
-  el.jwtPreview.textContent = [
+  const lines = [
     `sub: ${payload.sub ?? '—'}`,
     `aud: ${JSON.stringify(payload.aud)}`,
     `iss: ${payload.iss ?? '—'}`,
     `exp: ${exp}`,
-  ].join('\n');
+  ];
+  if (payload.gty === 'client-credentials' || String(payload.sub ?? '').includes('@clients')) {
+    lines.push(
+      '⚠ M2M token (client-credentials) — enroll works but links a machine, not a user.',
+      '  For patient enroll use Auth0 API → Test tab or a user password-grant token.',
+    );
+  }
+  el.jwtPreview.textContent = lines.join('\n');
 }
 
 function appendLog(entry) {
@@ -372,15 +505,21 @@ function appendLog(entry) {
   const codeClass =
     entry.status >= 200 && entry.status < 300 ? 'code-2' : 'code-4';
   div.innerHTML = `<div><span class="req">${entry.method} ${entry.path}</span> <span class="${codeClass}">${entry.status}</span> <span>${entry.ms}ms</span></div>`;
+  if (entry.requestBody !== undefined) {
+    const reqPre = document.createElement('pre');
+    reqPre.textContent = `→ ${formatLogJson(entry.requestBody)}`;
+    div.appendChild(reqPre);
+  }
   if (entry.body !== undefined) {
     const pre = document.createElement('pre');
-    pre.textContent =
-      typeof entry.body === 'string'
-        ? entry.body
-        : JSON.stringify(entry.body, null, 2);
+    pre.textContent = formatLogJson(entry.body);
     div.appendChild(pre);
   }
   el.requestLog.prepend(div);
+}
+
+function formatLogJson(value) {
+  return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 
 async function apiRequest(options) {
@@ -416,8 +555,9 @@ async function apiRequest(options) {
     appendLog({
       method: options.method,
       path: options.path,
-      status: 0,
+      status: status || 0,
       ms: Math.round(performance.now() - started),
+      requestBody: options.body,
       body: message,
     });
     throw error;
@@ -428,6 +568,7 @@ async function apiRequest(options) {
         path: options.path,
         status,
         ms: Math.round(performance.now() - started),
+        requestBody: options.body,
         body: data ?? text,
       });
     }
@@ -636,6 +777,7 @@ async function runScenario(scenario) {
     case 'chat':
       el.chatInput.value = scenario.message;
       await sendChat(scenario.message, { withJwt: scenario.withJwt });
+      el.chatInput.value = '';
       break;
     case 'chatNoConv':
       await sendChat(scenario.message, { omitConversationHeader: true });
@@ -657,6 +799,12 @@ async function runScenario(scenario) {
       break;
     case 'link':
       await linkPatient();
+      break;
+    case 'showVoicePanel':
+      showVoicePanel();
+      break;
+    case 'startBrowserVoice':
+      await startBrowserVoice();
       break;
     default:
       break;
@@ -710,12 +858,17 @@ function bindEvents() {
     input.addEventListener('change', () => {
       saveState();
       if (input === el.jwt) updateJwtPreview();
+      if (input === el.baseUrl || input === el.useSameOrigin) updateVoicePanel();
     });
     input.addEventListener('input', () => {
       if (input === el.jwt) updateJwtPreview();
+      if (input === el.baseUrl) updateVoicePanel();
     });
   }
-  el.useSameOrigin.addEventListener('change', saveState);
+  el.useSameOrigin.addEventListener('change', () => {
+    saveState();
+    updateVoicePanel();
+  });
 
   document.getElementById('btnSave').addEventListener('click', saveState);
   document.getElementById('btnClearLog').addEventListener('click', () => {
@@ -738,9 +891,16 @@ function bindEvents() {
   document.getElementById('btnLink').addEventListener('click', () => {
     void linkPatient();
   });
+  el.btnVoiceStart.addEventListener('click', () => {
+    void startBrowserVoice();
+  });
+  el.btnVoiceStop.addEventListener('click', () => {
+    void stopBrowserVoice();
+  });
   document.getElementById('btnSendChat').addEventListener('click', () => {
     const msg = el.chatInput.value.trim();
     if (!msg) return;
+    el.chatInput.value = '';
     void sendChat(msg);
   });
   document.getElementById('btnHealth').addEventListener('click', () => {
@@ -767,6 +927,7 @@ function initForm() {
   el.fullName.value = state.fullName || 'محمود تست';
   el.useSameOrigin.checked = state.useSameOrigin !== false;
   updateJwtPreview();
+  updateVoicePanel();
   renderChat();
 }
 

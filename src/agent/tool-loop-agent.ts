@@ -13,6 +13,10 @@ import type { TrustedExecutionContext } from './execution-context.js';
 import type { ToolRegistry, ToolResult } from './tools/types.js';
 import { CLINIC_AGENT_SYSTEM_INSTRUCTION } from './prompts.js';
 import { createSafeObservability } from './safe-observability.js';
+import {
+  loadTraceLoggingConfig,
+  logTraceEvent,
+} from '../config/trace-logging.js';
 
 export type AgentTurnInput = {
   message: string;
@@ -161,6 +165,13 @@ export class ToolLoopAgent implements ClinicAgent {
               toolSpan.setAttribute('error_code', result.code);
             }
             toolSpan.end();
+            logToolDispatch({
+              conversationId,
+              step,
+              call,
+              result,
+              latencyMs: Date.now() - toolStarted,
+            });
             appendToolResult(loopMessages, call, result);
           }
           continue;
@@ -176,9 +187,16 @@ export class ToolLoopAgent implements ClinicAgent {
         });
         turnSpan.setAttribute('status', 'ok');
         turnSpan.setAttribute('latency_ms', Date.now() - turnStarted);
-        turnSpan.setAttribute('tools_invoked', toolNamesInvoked.length);
-        turnSpan.end();
-        return { reply, toolNamesInvoked };
+          turnSpan.setAttribute('tools_invoked', toolNamesInvoked.length);
+          turnSpan.end();
+          logAgentTurn({
+            conversationId,
+            authenticated: Boolean(execution.actor),
+            toolNamesInvoked,
+            status: 'ok',
+            latencyMs: Date.now() - turnStarted,
+          });
+          return { reply, toolNamesInvoked };
       }
 
       const fallback =
@@ -257,4 +275,55 @@ function chatErrorCode(error: unknown): string {
   if (error instanceof ChatModelInvalidResponseError) return error.code;
   if (error instanceof Error && error.name) return error.name;
   return 'CHAT_MODEL_ERROR';
+}
+
+function logToolDispatch(input: {
+  conversationId: string;
+  step: number;
+  call: ChatToolCall;
+  result: ToolResult;
+  latencyMs: number;
+}): void {
+  if (!loadTraceLoggingConfig().tools) return;
+
+  const payload: Record<string, unknown> = {
+    event: 'tool_dispatch',
+    conversation_id: input.conversationId,
+    step: input.step,
+    tool: input.call.name,
+    ok: input.result.ok,
+    latency_ms: input.latencyMs,
+    arguments: input.call.arguments,
+  };
+
+  if (!input.result.ok && 'code' in input.result) {
+    payload.code = input.result.code;
+    if ('message' in input.result && typeof input.result.message === 'string') {
+      payload.message = input.result.message;
+    }
+  } else if (input.result.ok && 'message' in input.result) {
+    const raw = input.result.message;
+    payload.result_preview =
+      typeof raw === 'string' && raw.length > 240 ? `${raw.slice(0, 240)}…` : raw;
+  }
+
+  logTraceEvent(payload);
+}
+
+function logAgentTurn(input: {
+  conversationId: string;
+  authenticated: boolean;
+  toolNamesInvoked: string[];
+  status: string;
+  latencyMs: number;
+}): void {
+  if (!loadTraceLoggingConfig().agent) return;
+  logTraceEvent({
+    event: 'agent_turn',
+    conversation_id: input.conversationId,
+    authenticated: input.authenticated,
+    tools_invoked: input.toolNamesInvoked,
+    status: input.status,
+    latency_ms: input.latencyMs,
+  });
 }

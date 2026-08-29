@@ -13,5 +13,9 @@ export function createObservabilityFromEnv(
   if (!config.enabled) {
     return new NoopObservability();
   }
-  return createOpikObservability(config);
+  try {
+    return createOpikObservability(config);
+  } catch {
+    return new NoopObservability();
+  }
 }

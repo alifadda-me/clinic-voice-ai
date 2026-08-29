@@ -30,6 +30,10 @@ export function loadOpikObservabilityConfig(
   });
 
   const apiKey = parsed.OPIK_API_KEY?.trim() || undefined;
+  const workspaceName = parsed.OPIK_WORKSPACE?.trim() || undefined;
+
+  // Opik SDK requires workspace when apiKey is set — treat incomplete config as disabled (fail-open).
+  const enabled = Boolean(apiKey && workspaceName);
 
   return {
     ...(apiKey ? { apiKey } : {}),
@@ -37,9 +41,7 @@ export function loadOpikObservabilityConfig(
       ? { apiUrl: parsed.OPIK_URL_OVERRIDE.replace(/\/$/, '') }
       : {}),
     projectName: parsed.OPIK_PROJECT_NAME,
-    ...(parsed.OPIK_WORKSPACE
-      ? { workspaceName: parsed.OPIK_WORKSPACE }
-      : {}),
-    enabled: Boolean(apiKey),
+    ...(workspaceName ? { workspaceName } : {}),
+    enabled,
   };
 }

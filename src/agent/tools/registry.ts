@@ -1,5 +1,6 @@
 import type { ClinicTool, ToolRegistry, ToolExecutionContext, ToolResult } from './types.js';
 import { formatToolError, patientRequiredResult } from './format-error.js';
+import { normalizeToolArgs } from './normalize-tool-args.js';
 
 /** Fields the model must never control — execution context is authoritative. */
 const UNTRUSTED_IDENTITY_KEYS = [
@@ -49,7 +50,10 @@ export function createToolRegistry(tools: ClinicTool[]): ToolRegistry {
         return patientRequiredResult();
       }
 
-      const safeArgs = stripUntrustedIdentityArgs(args);
+      const safeArgs = normalizeToolArgs(
+        name,
+        stripUntrustedIdentityArgs(args),
+      );
 
       try {
         return await tool.execute(safeArgs, ctx);
